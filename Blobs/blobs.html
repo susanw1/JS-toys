@@ -1,0 +1,29 @@
+<!doctype html>
+
+<html lang="en-GB">
+    <head>
+        <meta charset="utf-8"/>
+        <title>Gravity</title>
+        <style>
+            canvas {
+                background: #eee;
+                display:    block;
+                margin:     0 auto;
+                padding:    0;
+            }
+        </style>
+        <script src="blobs.js"></script>
+    </head>
+
+    <body>
+        <button id="startBtn">Start Game</button>
+        <canvas id="gameCanvas" width="1024" height="768"></canvas>
+        
+        <script>
+            const gameCanvas = document.getElementById("gameCanvas");
+            const startBtn = document.getElementById("startBtn");
+            startBtn.addEventListener("click", () => { startBtn.disabled = true; startGame(gameCanvas); } );
+        </script>
+    </body>
+</html>
+
