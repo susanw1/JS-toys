@@ -1,0 +1,94 @@
+<!doctype html>
+
+<html lang="en-GB">
+    <head>
+        <meta charset="utf-8"/>
+        <title>Bouncing balls</title>
+        <style>
+            * {
+                padding: 0;
+                margin: 0;
+            }
+            canvas {
+                background: #eee;
+                display: block;
+                margin: 0 auto;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Bouncing Ball Game</h1>
+        <canvas id="gameCanvas" width="640" height="512"/>
+        <button id="runButton">Start Game</button>
+
+        <script>
+            const canvas = document.getElementById("gameCanvas");
+            const ctx = canvas.getContext("2d");
+            let x = 50;
+            let y = 50;
+            let dx = 1;
+            let dy = -2.1;
+            const rad = 50; 
+            
+            let interval = 0;
+
+            function drawBall() {
+                ctx.beginPath();
+                ctx.arc(x, y, rad, 0, Math.PI * 2, false);
+                ctx.fillStyle = "#00FF00";
+                ctx.strokeStyle = "#0000FF";
+                ctx.fill();
+                ctx.stroke();
+                ctx.closePath();
+            }
+
+            function drawLoop(dt) {
+                console.log(`dt = ${dt}`);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                drawBall();
+
+                x += dx;
+                y += dy;
+                dy += 0.1;
+                if (x <= rad && dx < 0 || x >= canvas.width - rad && dx > 0) {
+                    dx = -dx * 0.9;
+                }
+                if (y < rad && dy < 0 || y > canvas.height - rad && dy > 0) {
+                    dy = -dy * 0.9;
+                    dx = dx * 0.9;
+                }
+
+                requestAnimationFrame(drawLoop);
+            }
+
+            function keyDownHandler(e) {
+                console.log("Event: " + e);
+                console.log("Key pressed: " + e.key);
+                console.log("Keycode: " + e.code);
+                if (e.code == "Escape") {
+                    alert("GAME OVER");
+                    document.location.reload();
+                    // clearInterval(interval);
+                }           
+            }
+
+            function mouseDownHandler(e) {
+                console.log("Event: " + e + "; x,y=" + e.x + "," + e.y);
+            }
+
+            function startGame() {
+                document.addEventListener("keydown", keyDownHandler, false);
+                canvas.addEventListener("mousedown", mouseDownHandler, false);
+                canvas.addEventListener("mouseup", mouseDownHandler, false);
+                drawLoop();
+                // interval = setInterval(drawLoop, 10);
+            }
+
+            const runButton = document.getElementById("runButton");
+            runButton.addEventListener("click", () => { startGame(); runButton.disabled = true; } );
+        </script>
+    </body>
+</html>
+
+
