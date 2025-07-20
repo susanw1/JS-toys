@@ -1,0 +1,39 @@
+<!doctype html>
+
+<html lang="en-GB">
+    <head>
+        <meta charset="utf-8"/>
+        <title>3D Cube</title>
+        <style>
+            canvas {
+                padding: 0;
+                background: #eee;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="gameCanvas" width="1024" height="768"></canvas>
+        <script src="cube.js"></script>
+        <h3>Controls</h3>
+        Rotate cube (from its perspective) - shift to reverse:
+        <ul>
+            <li>R: Roll (rotate around Z)</li>
+            <li>P: Pitch (rotate around X)</li>
+            <li>Y: Roll (rotate around Y)</li>
+        </ul>
+        Move cube (from its perspective):
+        <ul>
+            <li>Arrows: Left/Right (X-axis move)</li>
+            <li>Arrows: Up/Down (Y-axis move)</li>
+        </ul>
+        Move View:
+        <ul>
+            <li>W: Strafe Up</li>
+            <li>S: Strafe Down</li>
+            <li>A: Strafe Left</li>
+            <li>D: Strafe Right</li>
+            <li>Z: Zoom In (shift-Z Out)</li>
+        </ul>
+    </body>
+</html>
+
