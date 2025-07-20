@@ -1,6 +1,3 @@
-function hello() {
-    console.log("hello");
-}
 
 const gameState = {
     blobs: [],
