@@ -5,6 +5,7 @@ const gameState = {
 };
 
 const viewState = {
+    touchIdentifier: null
 };
 
 var  canvas;
@@ -13,9 +14,16 @@ var  ctx;
 function startGame(cv) {
     canvas = cv;
     ctx = canvas.getContext("2d");
-    canvas.addEventListener("mousedown", recordMouseOnCanvas);
-    document.addEventListener("mousemove", markBlobCreation);
-    document.addEventListener("mouseup", createBlobAtMouse);
+    canvas.addEventListener("mousedown", handleMouseDown);
+    canvas.addEventListener("touchstart", handleTouchStart);
+
+    // Use 'document' to continue events when mouse moves out of the canvas, must record offset
+    document.addEventListener("mousemove", handleMouseMove);
+    canvas.addEventListener("touchmove", handleTouchMove);
+
+    document.addEventListener("mouseup", handleMouseUp);
+    canvas.addEventListener("touchend", handleTouchEnd);
+    canvas.addEventListener("touchcancel", handleTouchCancel);
     mainLoop(0);
 }
 
@@ -29,31 +37,93 @@ function mainLoop(t) {
     requestAnimationFrame(mainLoop);
 }
 
-function recordMouseOnCanvas(e) {
-    viewState.newBlobCreateX = viewState.newBlobClickX = e.offsetX;
-    viewState.newBlobCreateY = viewState.newBlobClickY = e.offsetY;
-    viewState.docOffsetX = e.offsetX - e.x;
-    viewState.docOffsetY = e.offsetY - e.y;
+function handleMouseDown(e) {
+    recordPressOnCanvas(e.offsetX, e.offsetY, e.clientX, e.clientY);
+    log(`mouse start`);
+}
 
+function handleTouchStart(e) {
+    e.preventDefault();
+    const t = e.touches[0];
+    viewState.touchIdentifier = t.identifier;
+
+    recordPressOnCanvas(t.clientX, t.clientY, t.clientX, t.clientY);
+    log(`touch start #touches: ${e.touches.length} (t.identifier=${t.identifier}, viewState.touchIdentifier=${viewState.touchIdentifier})`);
+}
+
+
+/**
+ * @param targetX the X location as seen by the target element (eg the canvas)
+ * @param clientX the X location as seen by the viewPort (eg the canvas)
+ */
+function recordPressOnCanvas(targetX, targetY, clientX, clientY) {
+    viewState.newBlobCreateX = viewState.newBlobClickX = targetX;
+    viewState.newBlobCreateY = viewState.newBlobClickY = targetY;
+    viewState.docOffsetX = clientX - targetX;
+    viewState.docOffsetY =  clientY - targetY;
+
+    log(`docOffset: ${viewState.docOffsetX}, ${viewState.docOffsetY}`);
     viewState.showNewBlob = true;
 }
 
-function markBlobCreation(e) {
-    if (viewState.showNewBlob) {
-        viewState.newBlobCreateX = e.x + viewState.docOffsetX;
-        viewState.newBlobCreateY = e.y + viewState.docOffsetY;
+function handleMouseMove(e) {
+    markProtoBlobCreation(e.clientX, e.clientY);
+}
+
+function handleTouchMove(e) { 
+    if (viewState.touchIdentifier === null) {
+        return;
+    }
+    for (t of e.touches) {
+        if (viewState.touchIdentifier == t.identifier) {
+            markProtoBlobCreation(t.clientX, t.clientY);
+            return;
+        }
     }
 }
 
-function createBlobAtMouse(e) {
+function markProtoBlobCreation(clientX, clientY) {
     if (viewState.showNewBlob) {
-        let x = e.x + viewState.docOffsetX; 
-        let y = e.y + viewState.docOffsetY; 
+        viewState.newBlobCreateX = clientX - viewState.docOffsetX;
+        viewState.newBlobCreateY = clientY - viewState.docOffsetY;
+    }
+}
 
-        dx = (viewState.newBlobClickX - x) / 10;
-        dy = (viewState.newBlobClickY - y) / 10;
+function handleMouseUp(e) {
+    createBlobAtMouse(e.clientX, e.clientY);
+}
+
+function handleTouchCancel() {
+    log(`touch cancel`);
+    viewState.showNewBlob = false;
+}
+
+function handleTouchEnd(e) {
+    if (viewState.touchIdentifier === null) {
+        return;
+    }
+
+    e.preventDefault();
+    for (t of e.changedTouches) {
+        if (viewState.touchIdentifier == t.identifier) {
+            createBlobAtMouse(t.clientX, t.clientY);
+            viewState.touchIdentifier = null;
+            return;
+        }
+    }
+}
+
+
+function createBlobAtMouse(clientX, clientY) {
+    if (viewState.showNewBlob) {
+        const x = clientX - viewState.docOffsetX; 
+        const y = clientY - viewState.docOffsetY; 
+
+        const dx = (viewState.newBlobClickX - x) / 10;
+        const dy = (viewState.newBlobClickY - y) / 10;
         createBlob(x, y, dx, dy);
         viewState.showNewBlob = false;
+        log(`New blob at ${x},${y}`);
     }
 }
 
@@ -185,3 +255,7 @@ class Blob {
     }
 }
 
+function log(msg) {
+    const container = document.getElementById("log");
+    container.textContent = `${msg} \n${container.textContent}`;
+}
