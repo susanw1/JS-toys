@@ -11,11 +11,11 @@ const gameState = {
 };
 
 const viewState = {
-    x: 5,
+    x: 0,
     y: 0,
-    z: 5,
+    z: 0,
     
-    yawAngle: -Math.PI / 2,
+    yawAngle: 0,
     pitchAngle: 0,
     rollAngle: 0,
     zoom: 600
