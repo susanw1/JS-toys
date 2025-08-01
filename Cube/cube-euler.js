@@ -65,6 +65,15 @@ const LOCAL_MOVE_VECTORS = {
     PageDown:   (s) => [ [0],  [s], [0] ]
 };
 
+const VIEW_VECTORS = {
+    KeyW:  (s) => [[0], [0], [ s]], // forward
+    KeyS:  (s) => [[0], [0], [-s]], // backward
+    KeyA:  (s) => [[-s], [0], [0]], // left
+    KeyD:  (s) => [[ s], [0], [0]], // right
+    KeyQ:  (s) => [[0], [ s], [0]], // down
+    KeyE:  (s) => [[0], [-s], [0]]  // up
+};
+
 function keyDownHandler(e) {
     const dir = (event.shiftKey) ? -1 : 1; 
     const speed = 0.1; 
@@ -89,39 +98,17 @@ function keyDownHandler(e) {
         gameState.z += cv[2][0];
     }
 
-    // Movement based on camera orientation
-    const yaw = viewState.yawAngle;
-    const pitch = viewState.pitchAngle;
 
-    // Forward direction
-    const vfx = Math.cos(pitch) * Math.sin(yaw);
-    const vfy = -Math.sin(pitch);
-    const vfz = Math.cos(pitch) * Math.cos(yaw);
-
-    // Right (strafe) direction: cross of forward and world-up (0,1,0)
-    const vrx = Math.cos(yaw);
-    const vry = 0;
-    const vrz = -Math.sin(yaw);
-
-    // WASD keys move relative to current view
-    if (e.code === 'KeyW') {
-        viewState.x += vfx * speed;
-        viewState.y += vfy * speed;
-        viewState.z += vfz * speed;
-    } else if (e.code === 'KeyS') {
-        viewState.x -= vfx * speed;
-        viewState.y -= vfy * speed;
-        viewState.z -= vfz * speed;
-    } else if (e.code === 'KeyA') {
-        viewState.x -= vrx * speed;
-        viewState.y -= vry * speed;
-        viewState.z -= vrz * speed;
-    } else if (e.code === 'KeyD') {
-        viewState.x += vrx * speed;
-        viewState.y += vry * speed;
-        viewState.z += vrz * speed;
+    // Camera movement, using orientation
+    const cameraSpeed = 0.1;
+    const viewGen = VIEW_VECTORS[e.code];
+    if (viewGen) {
+        const vv = viewGen(cameraSpeed);
+        rotate3Vector(vv, viewState.rollAngle, viewState.pitchAngle, viewState.yawAngle);
+        viewState.x += vv[0][0];
+        viewState.y += vv[1][0];
+        viewState.z += vv[2][0];
     }
-
 
     if (e.code === 'KeyZ') {
         viewState.zoom += dir * 3;
