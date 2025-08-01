@@ -11,14 +11,14 @@ const gameState = {
 };
 
 const viewState = {
-    x: 0,
+    x: 5,
     y: 0,
-    z: 0,
+    z: 5,
     
-    yawAngle: 0,
+    yawAngle: -Math.PI / 2,
     pitchAngle: 0,
     rollAngle: 0,
-    zoom: 500
+    zoom: 600
 };
 
 let isDragging = false;
@@ -56,6 +56,15 @@ function startGame() {
     drawAll();
 }
 
+const LOCAL_MOVE_VECTORS = {
+    ArrowUp:    (s) => [ [0], [0],  [s] ],
+    ArrowDown:  (s) => [ [0], [0], [-s] ],
+    ArrowLeft:  (s) => [ [-s], [0], [0] ],
+    ArrowRight: (s) => [ [s], [0], [0] ],
+    PageUp:     (s) => [ [0], [-s], [0] ],
+    PageDown:   (s) => [ [0],  [s], [0] ]
+};
+
 function keyDownHandler(e) {
     const dir = (event.shiftKey) ? -1 : 1; 
     const speed = 0.1; 
@@ -69,38 +78,50 @@ function keyDownHandler(e) {
         gameState.yawAngle += speed * 0.2 * dir;
     }
 
+    // Cube movement: arrows
+    const cubeSpeed = 0.1;
+    const cvGen = LOCAL_MOVE_VECTORS[e.code];
+    if (cvGen) {
+        const cv = cvGen(cubeSpeed);
+        rotate3Vector(cv, gameState.rollAngle, gameState.pitchAngle, gameState.yawAngle);
+        gameState.x += cv[0][0];
+        gameState.y += cv[1][0];
+        gameState.z += cv[2][0];
+    }
+
     // Movement based on camera orientation
     const yaw = viewState.yawAngle;
     const pitch = viewState.pitchAngle;
 
     // Forward direction
-    const fx = Math.cos(pitch) * Math.sin(yaw);
-    const fy = -Math.sin(pitch);
-    const fz = Math.cos(pitch) * Math.cos(yaw);
+    const vfx = Math.cos(pitch) * Math.sin(yaw);
+    const vfy = -Math.sin(pitch);
+    const vfz = Math.cos(pitch) * Math.cos(yaw);
 
     // Right (strafe) direction: cross of forward and world-up (0,1,0)
-    const rx = Math.cos(yaw);
-    const ry = 0;
-    const rz = -Math.sin(yaw);
+    const vrx = Math.cos(yaw);
+    const vry = 0;
+    const vrz = -Math.sin(yaw);
 
     // WASD keys move relative to current view
     if (e.code === 'KeyW') {
-        viewState.x += fx * speed;
-        viewState.y += fy * speed;
-        viewState.z += fz * speed;
+        viewState.x += vfx * speed;
+        viewState.y += vfy * speed;
+        viewState.z += vfz * speed;
     } else if (e.code === 'KeyS') {
-        viewState.x -= fx * speed;
-        viewState.y -= fy * speed;
-        viewState.z -= fz * speed;
+        viewState.x -= vfx * speed;
+        viewState.y -= vfy * speed;
+        viewState.z -= vfz * speed;
     } else if (e.code === 'KeyA') {
-        viewState.x -= rx * speed;
-        viewState.y -= ry * speed;
-        viewState.z -= rz * speed;
+        viewState.x -= vrx * speed;
+        viewState.y -= vry * speed;
+        viewState.z -= vrz * speed;
     } else if (e.code === 'KeyD') {
-        viewState.x += rx * speed;
-        viewState.y += ry * speed;
-        viewState.z += rz * speed;
+        viewState.x += vrx * speed;
+        viewState.y += vry * speed;
+        viewState.z += vrz * speed;
     }
+
 
     if (e.code === 'KeyZ') {
         viewState.zoom += dir * 3;
@@ -143,9 +164,8 @@ function drawCube() {
             CUBE_DEF.vertices.map(v => v[1]), 
             CUBE_DEF.vertices.map(v => v[2])
         ];
-    rotateAxis(gameState.rollAngle, vec[1], vec[0]); // Y-X
-    rotateAxis(gameState.pitchAngle, vec[2], vec[1]); // Z-Y
-    rotateAxis(gameState.yawAngle, vec[2], vec[0]); // Z-X
+
+    rotate3Vector(vec, gameState.rollAngle, gameState.pitchAngle, gameState.yawAngle);
 
     // ... b) offset it into the world
     for (let i in vec[0]) {
@@ -155,6 +175,13 @@ function drawCube() {
     }
     
     drawVectors(CUBE_DEF.edges, vec, viewState);
+}
+
+// @param vec list of 3 (X, Y, Z) lists of points to be rotated in Roll(Y-X) Pitch(Z-Y) Yaw(Z-X) order. 
+function rotate3Vector(vec, roll, pitch, yaw) {
+    rotateAxis(roll, vec[1], vec[0]); // Y-X
+    rotateAxis(pitch, vec[2], vec[1]); // Z-Y
+    rotateAxis(yaw, vec[2], vec[0]); // Z-X
 }
 
 // Changes vertices array *in place*
