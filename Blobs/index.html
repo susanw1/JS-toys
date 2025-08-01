@@ -11,13 +11,22 @@
                 margin:     0 auto;
                 padding:    0;
             }
+            #log {
+                height: 300px;
+                width: 600px;
+                font-size: large;
+                overflow: scroll;
+                border: 1px solid #ccc;
+            }
         </style>
         <script src="blobs.js"></script>
     </head>
 
     <body>
         <button id="startBtn">Start Game</button>
-        <canvas id="gameCanvas" width="1024" height="768"></canvas>
+        <br/><br/><br/><br/>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <pre id="log"></pre>
         
         <script>
             const gameCanvas = document.getElementById("gameCanvas");
@@ -26,4 +35,5 @@
         </script>
     </body>
 </html>
+
 

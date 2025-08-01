@@ -5,6 +5,7 @@ const gameState = {
 };
 
 const viewState = {
+    touchIdentifier: null
 };
 
 var  canvas;
@@ -13,9 +14,16 @@ var  ctx;
 function startGame(cv) {
     canvas = cv;
     ctx = canvas.getContext("2d");
-    canvas.addEventListener("mousedown", recordMouseOnCanvas);
-    document.addEventListener("mousemove", markBlobCreation);
-    document.addEventListener("mouseup", createBlobAtMouse);
+    canvas.addEventListener("mousedown", handleMouseDown);
+    canvas.addEventListener("touchstart", handleTouchStart);
+
+    // Use 'document' to continue events when mouse moves out of the canvas, must record offset
+    document.addEventListener("mousemove", handleMouseMove);
+    canvas.addEventListener("touchmove", handleTouchMove);
+
+    document.addEventListener("mouseup", handleMouseUp);
+    canvas.addEventListener("touchend", handleTouchEnd);
+    canvas.addEventListener("touchcancel", handleTouchCancel);
     mainLoop(0);
 }
 
@@ -29,31 +37,102 @@ function mainLoop(t) {
     requestAnimationFrame(mainLoop);
 }
 
-function recordMouseOnCanvas(e) {
-    viewState.newBlobCreateX = viewState.newBlobClickX = e.offsetX;
-    viewState.newBlobCreateY = viewState.newBlobClickY = e.offsetY;
-    viewState.docOffsetX = e.offsetX - e.x;
-    viewState.docOffsetY = e.offsetY - e.y;
+function handleMouseDown(e) {
+    recordPressOnCanvas(e.offsetX, e.offsetY, e.clientX, e.clientY);
+    log(`mouse start`);
+}
+
+function handleTouchStart(e) {
+    e.preventDefault();
+    const t = e.touches[0];
+    viewState.touchIdentifier = t.identifier;
+
+    recordPressOnCanvas(t.clientX, t.clientY, t.clientX, t.clientY);
+    log(`touch start #touches: ${e.touches.length} (t.identifier=${t.identifier}, viewState.touchIdentifier=${viewState.touchIdentifier})`);
+
+//    for (let t of e.touches) {
+//        recordMouseOnCanvas(t.clientX, t.clientY, t.screenX, t.screenY);              
+//    }
+}
+
+
+function recordPressOnCanvas(targetX, targetY, clientX, clientY) {
+    viewState.newBlobCreateX = viewState.newBlobClickX = targetX;
+    viewState.newBlobCreateY = viewState.newBlobClickY = targetY;
+    viewState.docOffsetX = targetX - clientX;
+    viewState.docOffsetY = targetY - clientY;
 
     viewState.showNewBlob = true;
 }
 
-function markBlobCreation(e) {
-    if (viewState.showNewBlob) {
-        viewState.newBlobCreateX = e.x + viewState.docOffsetX;
-        viewState.newBlobCreateY = e.y + viewState.docOffsetY;
+var ccc=0;
+function handleMouseMove(e) {
+    markProtoBlobCreation(e.clientX, e.clientY);
+    if (ccc++ % 10 == 0) log(`mouse move`);
+}
+
+function handleTouchMove(e) { 
+    log(`A handleTouchMove() entered: viewState.touchIdentifier = ${viewState.touchIdentifier}`);
+    if (viewState.touchIdentifier === null) {
+        return;
+    }
+    log("B handleTouchMove() no early return");
+    for (t of e.touches) {
+        log(`C handleTouchMove()  - (t.identifier=${t.identifier}, viewState.touchIdentifier=${viewState.touchIdentifier})`);
+        if (viewState.touchIdentifier == t.identifier) {
+            markProtoBlobCreation(t.clientX, t.clientY);
+            log(`D touch move #touches: ${e.touches.length} (t.identifier=${t.identifier}, viewState.touchIdentifier=${viewState.touchIdentifier})`);
+            return;
+        }
     }
 }
 
-function createBlobAtMouse(e) {
+function markProtoBlobCreation(clientX, clientY) {
     if (viewState.showNewBlob) {
-        let x = e.x + viewState.docOffsetX; 
-        let y = e.y + viewState.docOffsetY; 
+        viewState.newBlobCreateX = clientX + viewState.docOffsetX;
+        viewState.newBlobCreateY = clientY + viewState.docOffsetY;
+    }
+}
 
-        dx = (viewState.newBlobClickX - x) / 10;
-        dy = (viewState.newBlobClickY - y) / 10;
+function handleMouseUp(e) {
+    createBlobAtMouse(e.clientX, e.clientY);
+    log(`mouse up`);
+}
+
+function handleTouchCancel() {
+    log(`touch cancel`);
+}
+
+function handleTouchEnd(e) {
+    log(`A1 handleTouchEnd() entered: viewState.touchIdentifier = ${viewState.touchIdentifier}`);
+    if (viewState.touchIdentifier === null) {
+        return;
+    }
+    log(`B1 handleTouchEnd() no early return. #touches = ${e.touches.length}, #changedTouches = ${e.changedTouches.length}`);
+
+    e.preventDefault();
+    for (t of e.changedTouches) {
+        log(`C handleTouchEnd()  - (t.identifier=${t.identifier}, viewState.touchIdentifier=${viewState.touchIdentifier})`);
+        if (viewState.touchIdentifier == t.identifier) {
+            createBlobAtMouse(t.clientX, t.clientY);
+            log(`D handleTouchEnd #touches: ${e.touches.length} (t.identifier=${t.identifier}, viewState.touchIdentifier=${viewState.touchIdentifier})`);
+            viewState.touchIdentifier = null;
+            return;
+        }
+    }
+}
+
+
+function createBlobAtMouse(clientX, clientY) {
+    if (viewState.showNewBlob) {
+        const x = clientX + viewState.docOffsetX; 
+        const y = clientY + viewState.docOffsetY; 
+
+        const dx = (viewState.newBlobClickX - x) / 10;
+        const dy = (viewState.newBlobClickY - y) / 10;
         createBlob(x, y, dx, dy);
         viewState.showNewBlob = false;
+        log(`New blob at ${x},${y}`);
     }
 }
 
@@ -185,3 +264,7 @@ class Blob {
     }
 }
 
+function log(msg) {
+    const container = document.getElementById("log");
+    container.textContent = `${msg} \n${container.textContent}`;
+}
