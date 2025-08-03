@@ -1,11 +1,9 @@
-
 const gameState = {
     blobs: [],
     newBlobs: []
 };
 
 const viewState = {
-    touchIdentifier: null
 };
 
 var  canvas;
@@ -14,6 +12,7 @@ var  ctx;
 function startGame(cv) {
     canvas = cv;
     ctx = canvas.getContext("2d");
+/*
     canvas.addEventListener("mousedown", handleMouseDown);
     canvas.addEventListener("touchstart", handleTouchStart);
 
@@ -24,8 +23,14 @@ function startGame(cv) {
     document.addEventListener("mouseup", handleMouseUp);
     canvas.addEventListener("touchend", handleTouchEnd);
     canvas.addEventListener("touchcancel", handleTouchCancel);
+*/
+    canvas.addEventListener("pointerdown", handlePointerDown);
+    canvas.addEventListener("pointerup", handlePointerUp);
+    canvas.addEventListener("pointermove", handlePointerMove);
+
     mainLoop(0);
 }
+
 
 function mainLoop(t) {
     addNewBlobs();
@@ -37,6 +42,7 @@ function mainLoop(t) {
     requestAnimationFrame(mainLoop);
 }
 
+/*
 function handleMouseDown(e) {
     recordPressOnCanvas(e.offsetX, e.offsetY, e.clientX, e.clientY);
     log(`mouse start`);
@@ -47,8 +53,29 @@ function handleTouchStart(e) {
     const t = e.touches[0];
     viewState.touchIdentifier = t.identifier;
 
-    recordPressOnCanvas(t.clientX, t.clientY, t.clientX, t.clientY);
-    log(`touch start #touches: ${e.touches.length} (t.identifier=${t.identifier}, viewState.touchIdentifier=${viewState.touchIdentifier})`);
+    const bcr = e.target.getBoundingClientRect();
+    log(`touch start bcr: ${bcr.x},${bcr.y} (t.offsetX=${t.offsetX})`);
+    recordPressOnCanvas(t.clientX, t.clientY, bcr.x, bcr.y);
+}
+*/
+
+function handlePointerDown(e) {
+    log(`pointerdown x, y = ${e.offsetX}, ${e.offsetY}`);
+    e.target.setPointerCapture(e.pointerId);
+    e.preventDefault();
+    recordPressOnCanvas(e.offsetX, e.offsetY, e.offsetX, e.offsetY);
+}
+
+var ccc = 0;
+function handlePointerMove(e) {
+    if (ccc++ % 100 == 0) log(`pointermove (${ccc})`);
+    e.preventDefault();
+    markProtoBlobCreation(e.offsetX, e.offsetY);
+}
+
+function handlePointerUp(e) {
+    log(`pointerup x, y = ${e.offsetX}, ${e.offsetY}`);
+    createBlobAtMouse(e.offsetX, e.offsetY);
 }
 
 
@@ -66,6 +93,7 @@ function recordPressOnCanvas(targetX, targetY, clientX, clientY) {
     viewState.showNewBlob = true;
 }
 
+/*
 function handleMouseMove(e) {
     markProtoBlobCreation(e.clientX, e.clientY);
 }
@@ -81,7 +109,7 @@ function handleTouchMove(e) {
         }
     }
 }
-
+*/
 function markProtoBlobCreation(clientX, clientY) {
     if (viewState.showNewBlob) {
         viewState.newBlobCreateX = clientX - viewState.docOffsetX;
@@ -89,6 +117,7 @@ function markProtoBlobCreation(clientX, clientY) {
     }
 }
 
+/*
 function handleMouseUp(e) {
     createBlobAtMouse(e.clientX, e.clientY);
 }
@@ -112,7 +141,7 @@ function handleTouchEnd(e) {
         }
     }
 }
-
+*/
 
 function createBlobAtMouse(clientX, clientY) {
     if (viewState.showNewBlob) {
