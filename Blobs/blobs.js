@@ -12,18 +12,7 @@ var  ctx;
 function startGame(cv) {
     canvas = cv;
     ctx = canvas.getContext("2d");
-/*
-    canvas.addEventListener("mousedown", handleMouseDown);
-    canvas.addEventListener("touchstart", handleTouchStart);
 
-    // Use 'document' to continue events when mouse moves out of the canvas, must record offset
-    document.addEventListener("mousemove", handleMouseMove);
-    canvas.addEventListener("touchmove", handleTouchMove);
-
-    document.addEventListener("mouseup", handleMouseUp);
-    canvas.addEventListener("touchend", handleTouchEnd);
-    canvas.addEventListener("touchcancel", handleTouchCancel);
-*/
     canvas.addEventListener("pointerdown", handlePointerDown);
     canvas.addEventListener("pointerup", handlePointerUp);
     canvas.addEventListener("pointermove", handlePointerMove);
@@ -42,117 +31,45 @@ function mainLoop(t) {
     requestAnimationFrame(mainLoop);
 }
 
-/*
-function handleMouseDown(e) {
-    recordPressOnCanvas(e.offsetX, e.offsetY, e.clientX, e.clientY);
-    log(`mouse start`);
-}
-
-function handleTouchStart(e) {
-    e.preventDefault();
-    const t = e.touches[0];
-    viewState.touchIdentifier = t.identifier;
-
-    const bcr = e.target.getBoundingClientRect();
-    log(`touch start bcr: ${bcr.x},${bcr.y} (t.offsetX=${t.offsetX})`);
-    recordPressOnCanvas(t.clientX, t.clientY, bcr.x, bcr.y);
-}
-*/
 
 function handlePointerDown(e) {
-    log(`pointerdown x, y = ${e.offsetX}, ${e.offsetY}`);
     e.target.setPointerCapture(e.pointerId);
     e.preventDefault();
-    recordPressOnCanvas(e.offsetX, e.offsetY, e.offsetX, e.offsetY);
+    recordPressOnCanvas(e.offsetX, e.offsetY);
 }
 
-var ccc = 0;
 function handlePointerMove(e) {
-    if (ccc++ % 100 == 0) log(`pointermove (${ccc})`);
     e.preventDefault();
     markProtoBlobCreation(e.offsetX, e.offsetY);
 }
 
 function handlePointerUp(e) {
-    log(`pointerup x, y = ${e.offsetX}, ${e.offsetY}`);
     createBlobAtMouse(e.offsetX, e.offsetY);
 }
 
 
-/**
- * @param targetX the X location as seen by the target element (eg the canvas)
- * @param clientX the X location as seen by the viewPort (eg the canvas)
- */
-function recordPressOnCanvas(targetX, targetY, clientX, clientY) {
+function recordPressOnCanvas(targetX, targetY) {
     viewState.newBlobCreateX = viewState.newBlobClickX = targetX;
     viewState.newBlobCreateY = viewState.newBlobClickY = targetY;
-    viewState.docOffsetX = clientX - targetX;
-    viewState.docOffsetY =  clientY - targetY;
 
-    log(`docOffset: ${viewState.docOffsetX}, ${viewState.docOffsetY}`);
     viewState.showNewBlob = true;
 }
 
-/*
-function handleMouseMove(e) {
-    markProtoBlobCreation(e.clientX, e.clientY);
-}
 
-function handleTouchMove(e) { 
-    if (viewState.touchIdentifier === null) {
-        return;
-    }
-    for (t of e.touches) {
-        if (viewState.touchIdentifier == t.identifier) {
-            markProtoBlobCreation(t.clientX, t.clientY);
-            return;
-        }
-    }
-}
-*/
 function markProtoBlobCreation(clientX, clientY) {
     if (viewState.showNewBlob) {
-        viewState.newBlobCreateX = clientX - viewState.docOffsetX;
-        viewState.newBlobCreateY = clientY - viewState.docOffsetY;
+        viewState.newBlobCreateX = clientX;
+        viewState.newBlobCreateY = clientY;
     }
 }
-
-/*
-function handleMouseUp(e) {
-    createBlobAtMouse(e.clientX, e.clientY);
-}
-
-function handleTouchCancel() {
-    log(`touch cancel`);
-    viewState.showNewBlob = false;
-}
-
-function handleTouchEnd(e) {
-    if (viewState.touchIdentifier === null) {
-        return;
-    }
-
-    e.preventDefault();
-    for (t of e.changedTouches) {
-        if (viewState.touchIdentifier == t.identifier) {
-            createBlobAtMouse(t.clientX, t.clientY);
-            viewState.touchIdentifier = null;
-            return;
-        }
-    }
-}
-*/
 
 function createBlobAtMouse(clientX, clientY) {
     if (viewState.showNewBlob) {
-        const x = clientX - viewState.docOffsetX; 
-        const y = clientY - viewState.docOffsetY; 
-
-        const dx = (viewState.newBlobClickX - x) / 10;
-        const dy = (viewState.newBlobClickY - y) / 10;
-        createBlob(x, y, dx, dy);
+        const dx = (viewState.newBlobClickX - clientX) / 10;
+        const dy = (viewState.newBlobClickY - clientY) / 10;
+        createBlob(clientX, clientY, dx, dy);
         viewState.showNewBlob = false;
-        log(`New blob at ${x},${y}`);
+        log(`New blob at ${clientX},${clientY}`);
     }
 }
 

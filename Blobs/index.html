@@ -20,6 +20,10 @@
                 top:        50%;
                 background: #888;
             }
+            #startBtn {
+                width:      100%;
+                font-size:  x-large;
+            }
             #log {
                 width:      600px;
                 height:     300px;
@@ -68,6 +72,7 @@
                 const gameCanvas = document.getElementById('gameCanvas');
                 gameCanvas.width = newWidth;
                 gameCanvas.height = newHeight;
+                log(`resize: w=${gameCanvas.width}, h=${gameCanvas.height}`);
             }
 
             window.addEventListener('resize', resizeGame, false);
