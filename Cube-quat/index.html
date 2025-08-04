@@ -3,19 +3,28 @@
 <html lang="en-GB">
     <head>
         <meta charset="utf-8"/>
-        <title>3D Cube</title>
+        <title>3D Cube (Quaternions)</title>
         <style>
             #gameCanvas {
                 padding: 0;
                 background: #eee;
             }
+            .header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center; /* optional: vertical alignment */
+                padding: 0 1rem;     /* optional: left/right spacing */
+            }
         </style>
     </head>
     <body>
-        <h3>Interactive Wireframe Cube, using Euler angles</h3>
+        <div class="header">
+            <h3>Interactive Wireframe Cube, using Quaternions</h3>
+            <a href="../Cube-euler/index.html">Euler-angle Cube</a>
+        </div>
         <canvas id="gameCanvas" width="1024" height="768"></canvas>
 
-        <script src="cube-euler.js"></script>
+        <script src="cube-quat.js"></script>
         <h3>Controls</h3>
         Rotate cube (from its perspective) - shift to reverse:
         <ul>

@@ -98,7 +98,6 @@ function keyDownHandler(e) {
         gameState.z += cv[2][0];
     }
 
-
     // Camera movement, using orientation
     const cameraSpeed = 0.1;
     const viewGen = VIEW_VECTORS[e.code];
@@ -119,6 +118,7 @@ function keyDownHandler(e) {
 
 function moveViewPoint(e) {
     if (!isDragging) return;
+    e.preventDefault();
 
     const dx = e.clientX - lastMouseX;
     const dy = e.clientY - lastMouseY;
