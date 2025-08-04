@@ -1,0 +1,42 @@
+<!doctype html>
+
+<html lang="en-GB">
+    <head>
+        <meta charset="utf-8"/>
+        <title>3D Cube</title>
+        <style>
+            #gameCanvas {
+                padding: 0;
+                background: #eee;
+            }
+        </style>
+    </head>
+    <body>
+        <h3>Interactive Wireframe Cube, using Euler angles</h3>
+        <canvas id="gameCanvas" width="1024" height="768"></canvas>
+
+        <script src="cube-euler.js"></script>
+        <h3>Controls</h3>
+        Rotate cube (from its perspective) - shift to reverse:
+        <ul>
+            <li>R: Roll (rotate around Z)</li>
+            <li>P: Pitch (rotate around X)</li>
+            <li>Y: Roll (rotate around Y)</li>
+        </ul>
+        Move cube (from its perspective):
+        <ul>
+            <li>Left/Right arrows: left/right (X-axis strafe)</li>
+            <li>Up/Down arrows: forward/back (Z-axis slide)</li>
+            <li>PgUp/PgDown: up/down (Y-axis strafe)</li>
+        </ul>
+        Move Camera View:
+        <ul>
+            <li>Mouse click+drag: aim camera crosshairs</li>
+            <li>W/S: Forward/Back</li>
+            <li>A/D: Strafe Left/Right</li>
+            <li>Z: Zoom In (shift-Z Out)</li>
+        </ul>
+        Note: the browser may capture some keys for page scrolling (eg Arrows, PgUp/Down). Using browser fullscreen (eg F11?) may help. 
+    </body>
+</html>
+
