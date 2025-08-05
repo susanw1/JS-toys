@@ -109,6 +109,7 @@ function keyDownHandler(e) {
         viewState.z += vv[2][0];
     }
 
+
     if (e.code === 'KeyZ') {
         viewState.zoom += dir * 3;
     }
@@ -164,11 +165,11 @@ function drawCube() {
     drawVectors(CUBE_DEF.edges, vec, viewState);
 }
 
-// @param vec list of 3 (X, Y, Z) lists of points to be rotated in Roll(Y-X) Pitch(Z-Y) Yaw(Z-X) order. 
+// @param vec list of 3 (X, Y, Z) lists of points to be rotated in Roll(Y-X) Pitch(Z-Y) Yaw(X-Z) order. 
 function rotate3Vector(vec, roll, pitch, yaw) {
     rotateAxis(roll, vec[1], vec[0]); // Y-X
     rotateAxis(pitch, vec[2], vec[1]); // Z-Y
-    rotateAxis(yaw, vec[2], vec[0]); // Z-X
+    rotateAxis(yaw, vec[0], vec[2]); // X-Z
 }
 
 // Changes vertices array *in place*
@@ -184,26 +185,23 @@ function rotateAxis(angle, v1, v2) {
     }
 }
 
+
 function drawVectors(edges, vertices, vs) {
-    const w = canvas.width;
-    const h = canvas.height;
+    const w    = canvas.width;
+    const h    = canvas.height;
     const zoom = vs.zoom;
 
-    const camMatrix = makeCameraMatrix(vs.yawAngle, vs.pitchAngle, vs.rollAngle);
-    
     ctx.beginPath();
     for (let eList of edges) {
         let started = false;
-
         for (let i = 0; i < eList.length; i++) {
-            const e = eList[i]; 
-            const [xc, yc, zc] = worldToCamera(vertices[0][e], vertices[1][e], vertices[2][e], vs, camMatrix);   
+            const e = eList[i];
+            const [xc, yc, zc] = worldToCamera(vertices[0][e], vertices[1][e], vertices[2][e], vs);
             if (zc <= 0) {
                 started = false;
             } else {
                 const x = (xc / zc) * zoom + w / 2;
                 const y = (yc / zc) * zoom + h / 2;
-
                 if (started) {
                     ctx.lineTo(x, y);
                     ctx.stroke();
@@ -214,34 +212,72 @@ function drawVectors(edges, vertices, vs) {
             }
         }
     }
-    ctx.closePath();       
+    ctx.closePath();
 }
 
-function makeCameraMatrix(yaw, pitch, roll) {
-    const cy = Math.cos(yaw), sy = Math.sin(yaw);
-    const cp = Math.cos(pitch), sp = Math.sin(pitch);
-    const cr = Math.cos(roll), sr = Math.sin(roll);
 
-    // Rotation order: Yaw → Pitch → Roll
-    // This produces a 3×3 camera-to-world rotation matrix
-    return [
-        [   cy * cr + sy * sp * sr,    sr * cp,    -sy * cr + cy * sp * sr ],
-        [   -cy * sr + sy * sp * cr,   cr * cp,    sr * sy + cy * sp * cr  ],
-        [   sy * cp,                   -sp,        cy * cp                 ]
-    ];
-}
-
-function worldToCamera(x, y, z, vs, camMatrix) {
+// Convert world coordinates (x,y,z) into camera space [xc, yc, zc]
+function worldToCamera(x, y, z, vs) {
+    // translate by camera position
     const dx = x - vs.x;
     const dy = y - vs.y;
     const dz = z - vs.z;
 
-    return [
-        dx * camMatrix[0][0] + dy * camMatrix[0][1] + dz * camMatrix[0][2],
-        dx * camMatrix[1][0] + dy * camMatrix[1][1] + dz * camMatrix[1][2],
-        dx * camMatrix[2][0] + dy * camMatrix[2][1] + dz * camMatrix[2][2]
-    ];
+    const yaw   = vs.yawAngle;
+    const pitch = vs.pitchAngle;
+    const roll  = vs.rollAngle;
+
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const cy = Math.cos(yaw),   sy = Math.sin(yaw);
+
+    // forward vector (yaw/pitch only)
+    let fx = sy * cp;
+    let fy = -sp;
+    let fz = cy * cp;
+
+    // right vector (world up cross forward)
+    let rx = cy;
+    let ry = 0;
+    let rz = -sy;
+
+    // up vector (forward cross right)
+    let ux = fy * rz - fz * ry;
+    let uy = fz * rx - fx * rz;
+    let uz = fx * ry - fy * rx;
+
+    // apply roll: rotate right and up around forward axis
+    if (roll !== 0) {
+        const cr = Math.cos(roll), sr = Math.sin(roll);
+        const newRx =  rx * cr + ux * sr;
+        const newRy =  ry * cr + uy * sr;
+        const newRz =  rz * cr + uz * sr;
+        const newUx = -rx * sr + ux * cr;
+        const newUy = -ry * sr + uy * cr;
+        const newUz = -rz * sr + uz * cr;
+        rx = newRx;  ry = newRy;  rz = newRz;
+        ux = newUx;  uy = newUy;  uz = newUz;
+    }
+
+    // project to camera coordinates via dot products
+    const xc = dx * rx + dy * ry + dz * rz;
+    const yc = dx * ux + dy * uy + dz * uz;
+    const zc = dx * fx + dy * fy + dz * fz;
+
+    return [xc, yc, zc];
 }
+
+
+//function worldToCamera(x, y, z, vs, camMatrix) {
+//    const dx = x - vs.x;
+//    const dy = y - vs.y;
+//    const dz = z - vs.z;
+//
+//    return [
+//        dx * camMatrix[0][0] + dy * camMatrix[0][1] + dz * camMatrix[0][2],
+//        dx * camMatrix[1][0] + dy * camMatrix[1][1] + dz * camMatrix[1][2],
+//        dx * camMatrix[2][0] + dy * camMatrix[2][1] + dz * camMatrix[2][2]
+//    ];
+//}
 
 function drawCrosshairs() {
     const w = canvas.width / 2;

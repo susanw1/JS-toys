@@ -163,11 +163,11 @@ function drawCube() {
     drawVectors(CUBE_DEF.edges, vec, viewState);
 }
 
-// @param vec list of 3 (X, Y, Z) lists of points to be rotated in Roll(Y-X) Pitch(Z-Y) Yaw(Z-X) order. 
+// @param vec list of 3 (X, Y, Z) lists of points to be rotated in Roll(Y-X) Pitch(Z-Y) Yaw(X-Z) order. 
 function rotate3Vector(vec, roll, pitch, yaw) {
     rotateAxis(roll, vec[1], vec[0]); // Y-X
     rotateAxis(pitch, vec[2], vec[1]); // Z-Y
-    rotateAxis(yaw, vec[2], vec[0]); // Z-X
+    rotateAxis(yaw, vec[0], vec[1]); // X-Z
 }
 
 // Changes vertices array *in place*
