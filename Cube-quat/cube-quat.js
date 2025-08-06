@@ -221,33 +221,57 @@ function drawCube() {
 
 
 // @param vec list of 3 (X, Y, Z) lists of points to be rotated in Roll(Y-X) Pitch(Z-Y) Yaw(X-Z) order. 
-function rotate3Vector(vec, roll, pitch, yaw) {
-    rotateAxis(roll, vec[1], vec[0]); // Y-X
-    rotateAxis(pitch, vec[2], vec[1]); // Z-Y
-    rotateAxis(yaw, vec[0], vec[1]); // X-Z
-}
+//function rotate3Vector(vec, roll, pitch, yaw) {
+//    rotateAxis(roll, vec[1], vec[0]); // Y-X
+//    rotateAxis(pitch, vec[2], vec[1]); // Z-Y
+//    rotateAxis(yaw, vec[0], vec[1]); // X-Z
+//}
 
 // Changes vertices array *in place*
-function rotateAxis(angle, v1, v2) {
-    const c = Math.cos(angle);
-    const s = Math.sin(angle);
-    const vDash = [];
-
-    for (let i in v1) {
-        const p1 = v1[i] * c + v2[i] * s;
-        v2[i] = v2[i] * c - v1[i] * s;
-        v1[i] = p1;
-    }
-}
+//function rotateAxis(angle, v1, v2) {
+//    const c = Math.cos(angle);
+//    const s = Math.sin(angle);
+//    const vDash = [];
+//
+//    for (let i in v1) {
+//        const p1 = v1[i] * c + v2[i] * s;
+//        v2[i] = v2[i] * c - v1[i] * s;
+//        v1[i] = p1;
+//    }
+//}
 
 // Transform world point to camera space using quaternion conjugate
 function worldToCameraPoint(x, y, z, vs) {
     const dx = x - vs.x;
     const dy = y - vs.y;
     const dz = z - vs.z;
-    const camInv = quatConjugate(vs.rotation); // inverse rotation
-    return quatRotateVector(camInv, [dx, dy, dz]);
+
+    const q = vs.rotation;
+    const [w, xq, yq, zq] = q;
+
+    // Camera forward vector (Z+)
+    const fx = 2 * (xq*zq + w*yq);
+    const fy = 2 * (yq*zq - w*xq);
+    const fz = 1 - 2 * (xq*xq + yq*yq);
+
+    // Camera right vector (X+)
+    const rx = 1 - 2 * (yq*yq + zq*zq);
+    const ry = 2 * (xq*yq + w*zq);
+    const rz = 2 * (xq*zq - w*yq);
+
+    // Camera up vector (Y+)
+    const ux = 2 * (xq*yq - w*zq);
+    const uy = 1 - 2 * (xq*xq + zq*zq);
+    const uz = 2 * (yq*zq + w*xq);
+
+    // Project into camera space via dot products
+    const xc = dx * rx + dy * ry + dz * rz;
+    const yc = dx * ux + dy * uy + dz * uz;
+    const zc = dx * fx + dy * fy + dz * fz;
+
+    return [xc, yc, zc];
 }
+
 
 function drawVectors(edges, verts, vs) {
     const w = canvas.width, h = canvas.height;
