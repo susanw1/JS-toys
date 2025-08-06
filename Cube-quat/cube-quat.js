@@ -138,7 +138,7 @@ function keyDownHandler(e) {
         dq = quatFromAxisAngle([0, 1, 0], turnSpeed * dir);
     }
     if (dq) {
-        gameState.rotation = quatMultiply(dq, gameState.rotation);
+        gameState.rotation = quatMultiply(gameState.rotation, dq); // local-space
         gameState.rotation = quatNormalize(gameState.rotation);        
     }
 
@@ -183,16 +183,17 @@ function moveViewPoint(e) {
     const yawAngle   = dx * sensitivity;
     const pitchAngle = -dy * sensitivity;
 
-    // Step 1: yaw around world Y and update orientation
-    const qYaw = quatFromAxisAngle([0, 1, 0], yawAngle);
-    viewState.rotation = quatMultiply(qYaw, viewState.rotation);
+    // Step 1: yaw around local Y
+    const localYaw = quatFromAxisAngle([0, 1, 0], yawAngle);
 
-    // Step 2: get right axis *after* yaw and apply pitch around it
-    const right = quatRotateVector(viewState.rotation, [1, 0, 0]);
-    const qPitch = quatFromAxisAngle(right, pitchAngle);
-    viewState.rotation = quatMultiply(qPitch, viewState.rotation);
+    // Step 2: pitch around local X
+    const localPitch = quatFromAxisAngle([1, 0, 0], pitchAngle);
 
-    // Step 3: renormalise to prevent drift
+    // Step 3: combine local rotations (yaw then pitch)
+    const localTurn = quatMultiply(localYaw, localPitch);
+
+    // Step 4: apply to camera rotation in local space
+    viewState.rotation = quatMultiply(viewState.rotation, localTurn);
     viewState.rotation = quatNormalize(viewState.rotation);
 
     drawAll();
@@ -204,7 +205,17 @@ function drawAll() {
     drawCrosshairs();
 }
 
-function drawCube() {
+// delete me
+function quatToMatrix(q) {
+    const [w, x, y, z] = q;
+    return [
+        [1 - 2*(y*y + z*z), 2*(x*y - z*w), 2*(x*z + y*w)],
+        [2*(x*y + z*w), 1 - 2*(x*x + z*z), 2*(y*z - x*w)],
+        [2*(x*z - y*w), 2*(y*z + x*w), 1 - 2*(x*x + y*y)]
+    ];
+}
+
+function drawCube1() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const verts = CUBE_DEF.vertices.map(([x,y,z]) => {
@@ -219,26 +230,29 @@ function drawCube() {
     drawVectors(CUBE_DEF.edges, verts, viewState);
 }
 
+function drawCube() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-// @param vec list of 3 (X, Y, Z) lists of points to be rotated in Roll(Y-X) Pitch(Z-Y) Yaw(X-Z) order. 
-//function rotate3Vector(vec, roll, pitch, yaw) {
-//    rotateAxis(roll, vec[1], vec[0]); // Y-X
-//    rotateAxis(pitch, vec[2], vec[1]); // Z-Y
-//    rotateAxis(yaw, vec[0], vec[1]); // X-Z
-//}
+    const rot = quatToMatrix(gameState.rotation);
+    const cx = gameState.x, cy = gameState.y, cz = gameState.z;
 
-// Changes vertices array *in place*
-//function rotateAxis(angle, v1, v2) {
-//    const c = Math.cos(angle);
-//    const s = Math.sin(angle);
-//    const vDash = [];
-//
-//    for (let i in v1) {
-//        const p1 = v1[i] * c + v2[i] * s;
-//        v2[i] = v2[i] * c - v1[i] * s;
-//        v1[i] = p1;
-//    }
-//}
+    const verts = CUBE_DEF.vertices.map(([x, y, z]) => {
+        // Shift vertex relative to cube center
+        const dx = x;
+        const dy = y;
+        const dz = z;
+
+        // Rotate
+        const rx = dx * rot[0][0] + dy * rot[0][1] + dz * rot[0][2];
+        const ry = dx * rot[1][0] + dy * rot[1][1] + dz * rot[1][2];
+        const rz = dx * rot[2][0] + dy * rot[2][1] + dz * rot[2][2];
+
+        // Translate to world position
+        return [rx + cx, ry + cy, rz + cz];
+    });
+
+    drawVectors(CUBE_DEF.edges, verts, viewState);
+}
 
 // Transform world point to camera space using quaternion conjugate
 function worldToCameraPoint(x, y, z, vs) {
@@ -297,32 +311,6 @@ function drawVectors(edges, verts, vs) {
     ctx.closePath();
 }
 
-
-function makeCameraMatrix(yaw, pitch, roll) {
-    const cy = Math.cos(yaw), sy = Math.sin(yaw);
-    const cp = Math.cos(pitch), sp = Math.sin(pitch);
-    const cr = Math.cos(roll), sr = Math.sin(roll);
-
-    // Rotation order: Yaw → Pitch → Roll
-    // This produces a 3×3 camera-to-world rotation matrix
-    return [
-        [   cy * cr + sy * sp * sr,    sr * cp,    -sy * cr + cy * sp * sr ],
-        [   -cy * sr + sy * sp * cr,   cr * cp,    sr * sy + cy * sp * cr  ],
-        [   sy * cp,                   -sp,        cy * cp                 ]
-    ];
-}
-
-function worldToCamera(x, y, z, vs, camMatrix) {
-    const dx = x - vs.x;
-    const dy = y - vs.y;
-    const dz = z - vs.z;
-
-    return [
-        dx * camMatrix[0][0] + dy * camMatrix[0][1] + dz * camMatrix[0][2],
-        dx * camMatrix[1][0] + dy * camMatrix[1][1] + dz * camMatrix[1][2],
-        dx * camMatrix[2][0] + dy * camMatrix[2][1] + dz * camMatrix[2][2]
-    ];
-}
 
 function drawCrosshairs() {
     const w = canvas.width / 2;
