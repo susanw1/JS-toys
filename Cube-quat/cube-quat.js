@@ -94,6 +94,11 @@ function startGame() {
         isDragging = false;
     });
 
+    // Prevent the browser from starting a native drag on the canvas
+    canvas.addEventListener('dragstart', (event) => {
+        event.preventDefault();
+    });
+
     drawAll();
 }
 
@@ -121,19 +126,22 @@ function keyDownHandler(e) {
     const cubeSpeed = 0.1;
 
     const turnSpeed = 0.02;
+    let dq = null;
     if (e.code === 'KeyR') {
         // roll around world Z
-        const dq = quatFromAxisAngle([0, 0, 1], turnSpeed * dir);
-        gameState.rotation = quatMultiply(dq, gameState.rotation);
+        dq = quatFromAxisAngle([0, 0, 1], turnSpeed * dir);
     } else if (e.code === 'KeyP') {
         // pitch around world X
-        const dq = quatFromAxisAngle([1, 0, 0], turnSpeed * dir);
-        gameState.rotation = quatMultiply(dq, gameState.rotation);
+        dq = quatFromAxisAngle([1, 0, 0], turnSpeed * dir);
     } else if (e.code === 'KeyY') {
         // yaw around world Y
-        const dq = quatFromAxisAngle([0, 1, 0], turnSpeed * dir);
-        gameState.rotation = quatMultiply(dq, gameState.rotation);
+        dq = quatFromAxisAngle([0, 1, 0], turnSpeed * dir);
     }
+    if (dq) {
+        gameState.rotation = quatMultiply(dq, gameState.rotation);
+        gameState.rotation = quatNormalize(gameState.rotation);        
+    }
+
 
     // Update cube movement: rotate local vector by cube’s quaternion
     const cvGen = LOCAL_MOVE_VECTORS[e.code];
@@ -175,14 +183,17 @@ function moveViewPoint(e) {
     const yawAngle   = dx * sensitivity;
     const pitchAngle = -dy * sensitivity;
 
-    // yaw about world Y axis
-    let qYaw = quatFromAxisAngle([0, 1, 0], yawAngle);
-    // pitch about camera's right axis (local X)
-    const right = quatRotateVector(viewState.rotation, [1, 0, 0]);
-    let qPitch = quatFromAxisAngle(right, pitchAngle);
+    // Step 1: yaw around world Y and update orientation
+    const qYaw = quatFromAxisAngle([0, 1, 0], yawAngle);
+    viewState.rotation = quatMultiply(qYaw, viewState.rotation);
 
-    // apply yaw then pitch
-    viewState.rotation = quatMultiply(qPitch, quatMultiply(qYaw, viewState.rotation));
+    // Step 2: get right axis *after* yaw and apply pitch around it
+    const right = quatRotateVector(viewState.rotation, [1, 0, 0]);
+    const qPitch = quatFromAxisAngle(right, pitchAngle);
+    viewState.rotation = quatMultiply(qPitch, viewState.rotation);
+
+    // Step 3: renormalise to prevent drift
+    viewState.rotation = quatNormalize(viewState.rotation);
 
     drawAll();
 }
