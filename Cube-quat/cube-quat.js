@@ -18,10 +18,14 @@ function quatMultiply(a, b) {
 
 // axis as [x,y,z] vector
 function quatFromAxisAngle(axis, angle) {
-    const [x, y, z] = axis;
-    const half = angle / 2;
-    const s = Math.sin(half);
-    return quatNormalize([Math.cos(half), x*s, y*s, z*s]);
+  let [x, y, z] = axis;
+  const len = Math.hypot(x, y, z);
+  if (len === 0) return [1, 0, 0, 0];
+  x /= len; y /= len; z /= len;
+
+  const half = angle / 2;
+  const s = Math.sin(half);
+  return [Math.cos(half), x*s, y*s, z*s];  // unit quat if axis is unit
 }
 
 // Rotate vector v by quaternion q
@@ -31,9 +35,9 @@ function quatRotateVector(q, v) {
     const uvx  = 2 * (y * vz - z * vy);
     const uvy  = 2 * (z * vx - x * vz);
     const uvz  = 2 * (x * vy - y * vx);
-    const uuvx = 2 * (y * uvz - z * uvy);
-    const uuvy = 2 * (z * uvx - x * uvz);
-    const uuvz = 2 * (x * uvy - y * uvx);
+    const uuvx = y * uvz - z * uvy;
+    const uuvy = z * uvx - x * uvz;
+    const uuvz = x * uvy - y * uvx;
     return [
         vx + w * uvx + uuvx,
         vy + w * uvy + uuvy,
@@ -128,18 +132,17 @@ function keyDownHandler(e) {
     const turnSpeed = 0.02;
     let dq = null;
     if (e.code === 'KeyR') {
-        // roll around world Z
+        // roll around local Z
         dq = quatFromAxisAngle([0, 0, 1], turnSpeed * dir);
     } else if (e.code === 'KeyP') {
-        // pitch around world X
+        // pitch around local X
         dq = quatFromAxisAngle([1, 0, 0], turnSpeed * dir);
     } else if (e.code === 'KeyY') {
-        // yaw around world Y
+        // yaw around local Y
         dq = quatFromAxisAngle([0, 1, 0], turnSpeed * dir);
     }
     if (dq) {
-        gameState.rotation = quatMultiply(gameState.rotation, dq); // local-space
-        gameState.rotation = quatNormalize(gameState.rotation);        
+        gameState.rotation = quatNormalize(quatMultiply(gameState.rotation, dq)); // local-space
     }
 
 
@@ -193,9 +196,8 @@ function moveViewPoint(e) {
     const localTurn = quatMultiply(localYaw, localPitch);
 
     // Step 4: apply to camera rotation in local space
-    viewState.rotation = quatMultiply(viewState.rotation, localTurn);
-    viewState.rotation = quatNormalize(viewState.rotation);
-
+    const r = quatNormalize(quatMultiply(viewState.rotation, localTurn));
+    viewState.rotation = (r[0] < 0)? r.map(v => -v) : r;
     drawAll();
 }
 
@@ -205,87 +207,52 @@ function drawAll() {
     drawCrosshairs();
 }
 
-// delete me
+
 function quatToMatrix(q) {
-    const [w, x, y, z] = q;
-    return [
-        [1 - 2*(y*y + z*z), 2*(x*y - z*w), 2*(x*z + y*w)],
-        [2*(x*y + z*w), 1 - 2*(x*x + z*z), 2*(y*z - x*w)],
-        [2*(x*z - y*w), 2*(y*z + x*w), 1 - 2*(x*x + y*y)]
-    ];
-}
+  // SAFETY: guard against slight drift — normalize first or scale by s
+  let [w, x, y, z] = q;
+  const s2 = w*w + x*x + y*y + z*z;
+  if (Math.abs(1 - s2) > 1e-6) {
+    const inv = 1 / Math.sqrt(s2);
+    w*=inv; x*=inv; y*=inv; z*=inv;
+  }
 
-function drawCube1() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const verts = CUBE_DEF.vertices.map(([x,y,z]) => {
-        const rotated = quatRotateVector(gameState.rotation, [x,y,z]);
-        return [
-            rotated[0] + gameState.x,
-            rotated[1] + gameState.y,
-            rotated[2] + gameState.z
-        ];
-    });
-
-    drawVectors(CUBE_DEF.edges, verts, viewState);
+  return [
+    [1 - 2*(y*y + z*z), 2*(x*y - z*w),   2*(x*z + y*w)],
+    [2*(x*y + z*w),     1 - 2*(x*x + z*z), 2*(y*z - x*w)],
+    [2*(x*z - y*w),     2*(y*z + x*w),   1 - 2*(x*x + y*y)]
+  ];
 }
 
 function drawCube() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const rot = quatToMatrix(gameState.rotation);
-    const cx = gameState.x, cy = gameState.y, cz = gameState.z;
+  const R = quatToMatrix(gameState.rotation); // unit-safe
+  const cx = gameState.x, cy = gameState.y, cz = gameState.z;
 
-    const verts = CUBE_DEF.vertices.map(([x, y, z]) => {
-        // Shift vertex relative to cube center
-        const dx = x;
-        const dy = y;
-        const dz = z;
+  // transform vertices (local -> world)
+  const verts = new Array(CUBE_DEF.vertices.length);
+  for (let i = 0; i < CUBE_DEF.vertices.length; i++) {
+    const [x, y, z] = CUBE_DEF.vertices[i];
+    const rx = x*R[0][0] + y*R[0][1] + z*R[0][2];
+    const ry = x*R[1][0] + y*R[1][1] + z*R[1][2];
+    const rz = x*R[2][0] + y*R[2][1] + z*R[2][2];
+    verts[i] = [rx + cx, ry + cy, rz + cz];
+  }
 
-        // Rotate
-        const rx = dx * rot[0][0] + dy * rot[0][1] + dz * rot[0][2];
-        const ry = dx * rot[1][0] + dy * rot[1][1] + dz * rot[1][2];
-        const rz = dx * rot[2][0] + dy * rot[2][1] + dz * rot[2][2];
-
-        // Translate to world position
-        return [rx + cx, ry + cy, rz + cz];
-    });
-
-    drawVectors(CUBE_DEF.edges, verts, viewState);
+  drawVectors(CUBE_DEF.edges, verts, viewState);
 }
 
-// Transform world point to camera space using quaternion conjugate
+
 function worldToCameraPoint(x, y, z, vs) {
-    const dx = x - vs.x;
-    const dy = y - vs.y;
-    const dz = z - vs.z;
+  const dx = x - vs.x;
+  const dy = y - vs.y;
+  const dz = z - vs.z;
 
-    const q = vs.rotation;
-    const [w, xq, yq, zq] = q;
-
-    // Camera forward vector (Z+)
-    const fx = 2 * (xq*zq + w*yq);
-    const fy = 2 * (yq*zq - w*xq);
-    const fz = 1 - 2 * (xq*xq + yq*yq);
-
-    // Camera right vector (X+)
-    const rx = 1 - 2 * (yq*yq + zq*zq);
-    const ry = 2 * (xq*yq + w*zq);
-    const rz = 2 * (xq*zq - w*yq);
-
-    // Camera up vector (Y+)
-    const ux = 2 * (xq*yq - w*zq);
-    const uy = 1 - 2 * (xq*xq + zq*zq);
-    const uz = 2 * (yq*zq + w*xq);
-
-    // Project into camera space via dot products
-    const xc = dx * rx + dy * ry + dz * rz;
-    const yc = dx * ux + dy * uy + dz * uz;
-    const zc = dx * fx + dy * fy + dz * fz;
-
-    return [xc, yc, zc];
+  const qInv = quatConjugate(vs.rotation);         // inverse of camera pose
+  const [xc, yc, zc] = quatRotateVector(qInv, [dx, dy, dz]);
+  return [xc, yc, zc];
 }
-
 
 function drawVectors(edges, verts, vs) {
     const w = canvas.width, h = canvas.height;
@@ -297,8 +264,10 @@ function drawVectors(edges, verts, vs) {
         for (const vi of eList) {
             const [xc, yc, zc] = worldToCameraPoint(verts[vi][0], verts[vi][1], verts[vi][2], vs);
             if (zc <= 0) { started = false; continue; }
-            const px = (xc / zc) * zoom + w / 2;
-            const py = (yc / zc) * zoom + h / 2;
+            const safeZ = Math.max(zc, 0.01);
+            const px = (xc / safeZ) * zoom + w/2;
+            const py = (yc / safeZ) * zoom + h/2;
+
             if (started) {
                 ctx.lineTo(px, py);
                 ctx.stroke();
