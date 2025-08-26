@@ -107,6 +107,12 @@ function startGame() {
     drawAll();
 }
 
+// Keys that cause scrolling / navigation in the browser by default
+const NAV_KEYS = new Set([
+  "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+  "PageUp", "PageDown", "Home", "End", "Space"
+]);
+
 const LOCAL_MOVE_VECTORS = {
     ArrowUp:    (s) => [ [0], [0],  [s] ],
     ArrowDown:  (s) => [ [0], [0], [-s] ],
@@ -126,6 +132,10 @@ const VIEW_VECTORS = {
 };
 
 function keyDownHandler(e) {
+    if (NAV_KEYS.has(e.code)) {
+        e.preventDefault();   // stop the browser scrolling the page
+    }
+
     const dir = (event.shiftKey) ? -1 : 1; 
     const speed = 0.1; 
     const cubeSpeed = 0.1;
@@ -150,7 +160,6 @@ function keyDownHandler(e) {
     // Update cube movement: rotate local vector by cube’s quaternion
     const cvGen = LOCAL_MOVE_VECTORS[e.code];
     if (cvGen) {
-        e.preventDefault();
         const cv = cvGen(cubeSpeed).map(arr => arr[0]); // flatten [[x],[y],[z]] to [x,y,z]
         const world = quatRotateVector(gameState.rotation, cv);
         gameState.x += world[0];
