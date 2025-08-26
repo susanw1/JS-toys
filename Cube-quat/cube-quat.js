@@ -80,7 +80,8 @@ const CUBE_DEF = {
 startGame();
 
 function startGame() {
-    document.addEventListener("keydown", keyDownHandler);
+    // passive:false to ensure key handler can preventDefault() to avoid unwanted page scrolls in all browsers
+    document.addEventListener("keydown", keyDownHandler, { passive: false });
 
     canvas.addEventListener("mousemove", moveViewPoint);
     
@@ -149,6 +150,7 @@ function keyDownHandler(e) {
     // Update cube movement: rotate local vector by cube’s quaternion
     const cvGen = LOCAL_MOVE_VECTORS[e.code];
     if (cvGen) {
+        e.preventDefault();
         const cv = cvGen(cubeSpeed).map(arr => arr[0]); // flatten [[x],[y],[z]] to [x,y,z]
         const world = quatRotateVector(gameState.rotation, cv);
         gameState.x += world[0];
@@ -197,6 +199,7 @@ function moveViewPoint(e) {
 
     // Step 4: apply to camera rotation in local space
     const r = quatNormalize(quatMultiply(viewState.rotation, localTurn));
+
     viewState.rotation = (r[0] < 0)? r.map(v => -v) : r;
     drawAll();
 }
