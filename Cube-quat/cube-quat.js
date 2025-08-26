@@ -98,7 +98,7 @@ function startGame() {
         controlsEnabled = (document.pointerLockElement === canvas) || (activePointerId !== null);
     });
 
-    // POINTER MOVE: handle relative motion from either path
+    // POINTER DOWN: record start of pointer action
     canvas.addEventListener('pointerdown', (e) => {
         if (e.pointerType === 'mouse') return;        // mouse handled by pointer lock
         onPointerDown(e);
@@ -173,25 +173,26 @@ function tick(now = performance.now()) {
     const zoomRate       = 250;   // pixels/s for Z
 
     // --- Cube rotation: local R/P/Y (hold keys to rotate continuously) ---
-    let dq = null;
+    let anyTurn = false;
+    let dq = quatIdentity();
     const sign = shiftHeld ? -1 : 1;
-    if (held.has('KeyR')) dq = quatFromAxisAngle([0,0,1], sign * cubeTurnRate * dt);
-    if (held.has('KeyP')) dq = quatFromAxisAngle([1,0,0], sign * cubeTurnRate * dt);
-    if (held.has('KeyY')) dq = quatFromAxisAngle([0,1,0], sign * cubeTurnRate * dt);
-    if (dq) {
-        gameState.rotation = quatMultiply(gameState.rotation, dq); // local
-        gameState.rotation = quatNormalize(gameState.rotation);
+    if (held.has('KeyR')) { dq = quatMultiply(dq, quatFromAxisAngle([0,0,1], sign * cubeTurnRate * dt)); anyTurn = true; };
+    if (held.has('KeyP')) { dq = quatMultiply(dq, quatFromAxisAngle([1,0,0], sign * cubeTurnRate * dt)); anyTurn = true; };
+    if (held.has('KeyY')) { dq = quatMultiply(dq, quatFromAxisAngle([0,1,0], sign * cubeTurnRate * dt)); anyTurn = true; };
+    if (anyTurn) {
+        const r = quatNormalize(quatMultiply(gameState.rotation, dq)); // local
+        gameState.rotation = (r[0] < 0)? r.map(v => -v) : r;        
     }
 
     // --- Cube translation: arrows/PgUp/PgDown (sum multiple keys) ---
-    const cubeLocal = localMoveFromHeld(held, LOCAL_MOVE_VECTORS, cubeMoveRate * dt);
+    const cubeLocal = localMoveFromKeysHeld(held, LOCAL_MOVE_VECTORS, cubeMoveRate * dt);
     if (cubeLocal[0] || cubeLocal[1] || cubeLocal[2]) {
         const world = quatRotateVector(gameState.rotation, cubeLocal);
         gameState.x += world[0]; gameState.y += world[1]; gameState.z += world[2];
     }
 
     // --- Camera translation: WASD/QE (sum multiple keys) ---
-    const camLocal = localMoveFromHeld(held, VIEW_VECTORS, camMoveRate * dt);
+    const camLocal = localMoveFromKeysHeld(held, VIEW_VECTORS, camMoveRate * dt);
     if (camLocal[0] || camLocal[1] || camLocal[2]) {
         const world = quatRotateVector(viewState.rotation, camLocal);
         viewState.x += world[0]; viewState.y += world[1]; viewState.z += world[2];
@@ -206,22 +207,17 @@ function tick(now = performance.now()) {
     requestAnimationFrame(tick);
 }
 
-function add3(a, b) { 
-    a[0] += b[0]; a[1] += b[1]; a[2] += b[2]; 
-    return a; 
-}
 
-function localMoveFromHeld(heldSet, vectorMap, speedPerSec) {
-    // Sum local-space moves for all pressed keys in this map
-    let v = [0,0,0];
+function localMoveFromKeysHeld(heldSet, vectorMap, step) {
+    let x=0, y=0, z=0;
     for (const code of heldSet) {
         const gen = vectorMap[code];
         if (gen) {
-            const [x,y,z] = gen(speedPerSec).map(a => a[0]); // [[x],[y],[z]] -> [x,y,z]
-            v = add3(v, [x,y,z]);
+            const vv = gen(step);
+            x += vv[0][0]; y += vv[1][0]; z += vv[2][0];
         }
     }
-    return v; // local-space
+    return [x,y,z];
 }
 
 function onPointerDown(e) {
@@ -257,8 +253,7 @@ function onPointerMove(e) {
     const pitchAngle = -dy * sensitivity;
 
     let r = quatMultiply(viewState.rotation, quatFromAxisAngle([0,1,0], yawAngle));
-    r = quatMultiply(r, quatFromAxisAngle([1,0,0], pitchAngle));
-    r = quatNormalize(r);
+    r = quatNormalize(quatMultiply(r, quatFromAxisAngle([1,0,0], pitchAngle)));
     viewState.rotation = (r[0] < 0)? r.map(v => -v) : r;
 
     drawAll();
@@ -340,13 +335,13 @@ function drawVectors(edges, verts, vs) {
 
             if (started) {
                 ctx.lineTo(px, py);
-                ctx.stroke();
             } else {
                 ctx.moveTo(px, py);
                 started = true;
             }
         }
     }
+    ctx.stroke();
     ctx.closePath();
 }
 
