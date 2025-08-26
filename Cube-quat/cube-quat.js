@@ -69,12 +69,14 @@ let controlsEnabled = false;     // "game mode" (true when mouse is locked or po
 let activePointerId = null;      // for touch/stylus
 let lastX = 0, lastY = 0;
 
+const held = new Set();
+let shiftHeld = false;
+
 // Keys that cause scrolling / navigation in the browser by default
 const NAV_KEYS = new Set([
   "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
   "PageUp", "PageDown", "Home", "End", "Space"
 ]);
-
 
 
 const CUBE_DEF = {
@@ -86,6 +88,7 @@ const CUBE_DEF = {
 
 startGame();
 
+// Note: passive:false to ensure key handler can preventDefault() to avoid unwanted page scrolls in all browsers
 function startGame() {
     canvas.addEventListener('click', () => {
         canvas.requestPointerLock?.();
@@ -117,14 +120,108 @@ function startGame() {
         onPointerUp(e);
     });
 
-    // passive:false to ensure key handler can preventDefault() to avoid unwanted page scrolls in all browsers
     document.addEventListener("keydown", (e) => {
         if (!controlsEnabled) return;
         if (NAV_KEYS.has(e.code)) e.preventDefault();
-        handleGameKey(e);
+
+        held.add(e.code);
+        if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+            shiftHeld = true;
+        }
     }, { passive: false });
 
+    document.addEventListener("keyup", (e) => {
+        held.delete(e.code);
+        if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+            shiftHeld = held.has('ShiftLeft') || held.has('ShiftRight');
+        }
+    }, { passive: false });
+
+    requestAnimationFrame(tick);
+}
+
+
+
+const LOCAL_MOVE_VECTORS = {
+    ArrowUp:    (s) => [ [0], [0],  [s] ],
+    ArrowDown:  (s) => [ [0], [0], [-s] ],
+    ArrowLeft:  (s) => [ [-s], [0], [0] ],
+    ArrowRight: (s) => [ [s], [0], [0] ],
+    PageUp:     (s) => [ [0], [-s], [0] ],
+    PageDown:   (s) => [ [0],  [s], [0] ]
+};
+
+const VIEW_VECTORS = {
+    KeyW:  (s) => [[0], [0], [ s]], // forward
+    KeyS:  (s) => [[0], [0], [-s]], // backward
+    KeyA:  (s) => [[-s], [0], [0]], // left
+    KeyD:  (s) => [[ s], [0], [0]], // right
+    KeyQ:  (s) => [[0], [ s], [0]], // down
+    KeyE:  (s) => [[0], [-s], [0]]  // up
+};
+
+let lastTime = performance.now();
+
+function tick(now = performance.now()) {
+    const dt = Math.min((now - lastTime) / 1000, 0.05); // seconds, clamp to avoid huge steps
+    lastTime = now;
+
+    // --- Tunables (per second) ---
+    const cubeTurnRate   = 1.5;   // rad/s for R,P,Y
+    const cubeMoveRate   = 1.0;   // units/s for arrows + PgUp/Dn
+    const camMoveRate    = 1.0;   // units/s for WASD + QE
+    const zoomRate       = 250;   // pixels/s for Z
+
+    // --- Cube rotation: local R/P/Y (hold keys to rotate continuously) ---
+    let dq = null;
+    const sign = shiftHeld ? -1 : 1;
+    if (held.has('KeyR')) dq = quatFromAxisAngle([0,0,1], sign * cubeTurnRate * dt);
+    if (held.has('KeyP')) dq = quatFromAxisAngle([1,0,0], sign * cubeTurnRate * dt);
+    if (held.has('KeyY')) dq = quatFromAxisAngle([0,1,0], sign * cubeTurnRate * dt);
+    if (dq) {
+        gameState.rotation = quatMultiply(gameState.rotation, dq); // local
+        gameState.rotation = quatNormalize(gameState.rotation);
+    }
+
+    // --- Cube translation: arrows/PgUp/PgDown (sum multiple keys) ---
+    const cubeLocal = localMoveFromHeld(held, LOCAL_MOVE_VECTORS, cubeMoveRate * dt);
+    if (cubeLocal[0] || cubeLocal[1] || cubeLocal[2]) {
+        const world = quatRotateVector(gameState.rotation, cubeLocal);
+        gameState.x += world[0]; gameState.y += world[1]; gameState.z += world[2];
+    }
+
+    // --- Camera translation: WASD/QE (sum multiple keys) ---
+    const camLocal = localMoveFromHeld(held, VIEW_VECTORS, camMoveRate * dt);
+    if (camLocal[0] || camLocal[1] || camLocal[2]) {
+        const world = quatRotateVector(viewState.rotation, camLocal);
+        viewState.x += world[0]; viewState.y += world[1]; viewState.z += world[2];
+    }
+
+    // --- Zoom (continuous when Z held; Shift inverts) ---
+    if (held.has('KeyZ')) {
+        viewState.zoom += sign * zoomRate * dt;
+    }
+
     drawAll();
+    requestAnimationFrame(tick);
+}
+
+function add3(a, b) { 
+    a[0] += b[0]; a[1] += b[1]; a[2] += b[2]; 
+    return a; 
+}
+
+function localMoveFromHeld(heldSet, vectorMap, speedPerSec) {
+    // Sum local-space moves for all pressed keys in this map
+    let v = [0,0,0];
+    for (const code of heldSet) {
+        const gen = vectorMap[code];
+        if (gen) {
+            const [x,y,z] = gen(speedPerSec).map(a => a[0]); // [[x],[y],[z]] -> [x,y,z]
+            v = add3(v, [x,y,z]);
+        }
+    }
+    return v; // local-space
 }
 
 function onPointerDown(e) {
@@ -159,10 +256,10 @@ function onPointerMove(e) {
     const yawAngle   = dx * sensitivity;
     const pitchAngle = -dy * sensitivity;
 
-    viewState.rotation = quatMultiply(viewState.rotation, quatFromAxisAngle([0,1,0], yawAngle));
-    viewState.rotation = quatMultiply(viewState.rotation, quatFromAxisAngle([1,0,0], pitchAngle));
-    viewState.rotation = quatNormalize(viewState.rotation);
-    if (viewState.rotation[0] < 0) viewState.rotation = viewState.rotation.map(v => -v);
+    let r = quatMultiply(viewState.rotation, quatFromAxisAngle([0,1,0], yawAngle));
+    r = quatMultiply(r, quatFromAxisAngle([1,0,0], pitchAngle));
+    r = quatNormalize(r);
+    viewState.rotation = (r[0] < 0)? r.map(v => -v) : r;
 
     drawAll();
 }
@@ -174,105 +271,6 @@ function onPointerUp(e) {
         controlsEnabled = (document.pointerLockElement === canvas);
     }
 }
-
-
-
-const LOCAL_MOVE_VECTORS = {
-    ArrowUp:    (s) => [ [0], [0],  [s] ],
-    ArrowDown:  (s) => [ [0], [0], [-s] ],
-    ArrowLeft:  (s) => [ [-s], [0], [0] ],
-    ArrowRight: (s) => [ [s], [0], [0] ],
-    PageUp:     (s) => [ [0], [-s], [0] ],
-    PageDown:   (s) => [ [0],  [s], [0] ]
-};
-
-const VIEW_VECTORS = {
-    KeyW:  (s) => [[0], [0], [ s]], // forward
-    KeyS:  (s) => [[0], [0], [-s]], // backward
-    KeyA:  (s) => [[-s], [0], [0]], // left
-    KeyD:  (s) => [[ s], [0], [0]], // right
-    KeyQ:  (s) => [[0], [ s], [0]], // down
-    KeyE:  (s) => [[0], [-s], [0]]  // up
-};
-
-function handleGameKey(e) {
-    const dir = (event.shiftKey) ? -1 : 1; 
-    const speed = 0.1; 
-    const cubeSpeed = 0.1;
-
-    const turnSpeed = 0.02;
-    let dq = null;
-    if (e.code === 'KeyR') {
-        // roll around local Z
-        dq = quatFromAxisAngle([0, 0, 1], turnSpeed * dir);
-    } else if (e.code === 'KeyP') {
-        // pitch around local X
-        dq = quatFromAxisAngle([1, 0, 0], turnSpeed * dir);
-    } else if (e.code === 'KeyY') {
-        // yaw around local Y
-        dq = quatFromAxisAngle([0, 1, 0], turnSpeed * dir);
-    }
-    if (dq) {
-        gameState.rotation = quatNormalize(quatMultiply(gameState.rotation, dq)); // local-space
-    }
-
-
-    // Update cube movement: rotate local vector by cube’s quaternion
-    const cvGen = LOCAL_MOVE_VECTORS[e.code];
-    if (cvGen) {
-        const cv = cvGen(cubeSpeed).map(arr => arr[0]); // flatten [[x],[y],[z]] to [x,y,z]
-        const world = quatRotateVector(gameState.rotation, cv);
-        gameState.x += world[0];
-        gameState.y += world[1];
-        gameState.z += world[2];
-    }
-
-    // Camera movement, using orientation
-    const cameraSpeed = 0.1;
-
-    const viewGen = VIEW_VECTORS[e.code];
-    if (viewGen) {
-        const vv = viewGen(cameraSpeed).map(arr => arr[0]);
-        const worldMove = quatRotateVector(viewState.rotation, vv);
-        viewState.x += worldMove[0];
-        viewState.y += worldMove[1];
-        viewState.z += worldMove[2];
-    }
-
-    if (e.code === 'KeyZ') {
-        viewState.zoom += dir * 3;
-    }
-
-    drawAll();
-}
-
-function moveViewPoint(e) {
-    if (!isDragging) return;
-    const dx = e.clientX - lastMouseX;
-    const dy = e.clientY - lastMouseY;
-    lastMouseX = e.clientX;
-    lastMouseY = e.clientY;
-
-    const sensitivity = 0.005;
-    const yawAngle   = dx * sensitivity;
-    const pitchAngle = -dy * sensitivity;
-
-    // Step 1: yaw around local Y
-    const localYaw = quatFromAxisAngle([0, 1, 0], yawAngle);
-
-    // Step 2: pitch around local X
-    const localPitch = quatFromAxisAngle([1, 0, 0], pitchAngle);
-
-    // Step 3: combine local rotations (yaw then pitch)
-    const localTurn = quatMultiply(localYaw, localPitch);
-
-    // Step 4: apply to camera rotation in local space
-    const r = quatNormalize(quatMultiply(viewState.rotation, localTurn));
-
-    viewState.rotation = (r[0] < 0)? r.map(v => -v) : r;
-    drawAll();
-}
-
 
 function drawAll() {
     drawCube();
