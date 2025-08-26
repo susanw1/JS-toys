@@ -8,7 +8,9 @@
             #gameCanvas {
                 padding: 0;
                 background: #eee;
-            }
+                touch-action: none;             /* stop scroll/zoom on touch */
+                overscroll-behavior: contain;   /* avoid browser pull-to-refresh/overscroll */
+                cursor: crosshair;              /* or none when locked */            }
             .header {
                 display: flex;
                 justify-content: space-between;

@@ -50,8 +50,6 @@ function quatConjugate(q) {
 }
 
 
-
-
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -66,9 +64,17 @@ const viewState = {
     zoom: 600
 };
 
-let isDragging = false;
-let lastMouseX = 0;
-let lastMouseY = 0;
+
+let controlsEnabled = false;     // "game mode" (true when mouse is locked or pointer captured)
+let activePointerId = null;      // for touch/stylus
+let lastX = 0, lastY = 0;
+
+// Keys that cause scrolling / navigation in the browser by default
+const NAV_KEYS = new Set([
+  "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+  "PageUp", "PageDown", "Home", "End", "Space"
+]);
+
 
 
 const CUBE_DEF = {
@@ -77,41 +83,99 @@ const CUBE_DEF = {
     edges:  [[0,1,2,3,0,4,5,6,7,4], [1,5], [6,2], [3,7]]
 };
 
+
 startGame();
 
 function startGame() {
-    // passive:false to ensure key handler can preventDefault() to avoid unwanted page scrolls in all browsers
-    document.addEventListener("keydown", keyDownHandler, { passive: false });
-
-    canvas.addEventListener("mousemove", moveViewPoint);
+    canvas.addEventListener('click', () => {
+        canvas.requestPointerLock?.();
+    });
     
-    canvas.addEventListener("mousedown", (e) => {
-        isDragging = true;
-        lastMouseX = e.clientX;
-        lastMouseY = e.clientY;
+    document.addEventListener('pointerlockchange', () => {
+        controlsEnabled = (document.pointerLockElement === canvas) || (activePointerId !== null);
     });
 
-    canvas.addEventListener("mouseup", () => {
-        isDragging = false;
+    // POINTER MOVE: handle relative motion from either path
+    canvas.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse') return;        // mouse handled by pointer lock
+        onPointerDown(e);
+        e.preventDefault(); // stop scroll on mobile
+    }, { passive: false });
+
+    // POINTER MOVE: handle relative motion from either path
+    canvas.addEventListener('pointermove', (e) => {
+        if (!controlsEnabled) return;
+        onPointerMove(e);
+    }, { passive: false });
+
+    // POINTER UP/CANCEL: release capture for touch/stylus
+    canvas.addEventListener('pointerup', (e) => {
+        onPointerUp(e);
+    }, { passive: false });
+
+    canvas.addEventListener('pointercancel', (e) => {
+        onPointerUp(e);
     });
 
-    canvas.addEventListener("mouseleave", () => {
-        isDragging = false;
-    });
-
-    // Prevent the browser from starting a native drag on the canvas
-    canvas.addEventListener('dragstart', (event) => {
-        event.preventDefault();
-    });
+    // passive:false to ensure key handler can preventDefault() to avoid unwanted page scrolls in all browsers
+    document.addEventListener("keydown", (e) => {
+        if (!controlsEnabled) return;
+        if (NAV_KEYS.has(e.code)) e.preventDefault();
+        handleGameKey(e);
+    }, { passive: false });
 
     drawAll();
 }
 
-// Keys that cause scrolling / navigation in the browser by default
-const NAV_KEYS = new Set([
-  "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
-  "PageUp", "PageDown", "Home", "End", "Space"
-]);
+function onPointerDown(e) {
+    // Touch / pen path:
+    activePointerId = e.pointerId;
+    canvas.setPointerCapture(activePointerId);
+    controlsEnabled = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+}
+
+function onPointerMove(e) {
+    const sensitivity = 0.0025;
+    let dx = 0, dy = 0;
+
+    if (document.pointerLockElement === canvas && e.pointerType === 'mouse') {
+        // Pointer Lock mouse: relative deltas provided
+        dx = e.movementX || 0;
+        dy = e.movementY || 0;
+    } else if (e.pointerId === activePointerId) {
+        // Touch/stylus: compute relative deltas from last
+        dx = e.clientX - lastX;
+        dy = e.clientY - lastY;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        e.preventDefault(); // keep blocking scroll while dragging
+    } else {
+        return;
+    }
+
+    // Apply yaw/pitch in local space
+    const yawAngle   = dx * sensitivity;
+    const pitchAngle = -dy * sensitivity;
+
+    viewState.rotation = quatMultiply(viewState.rotation, quatFromAxisAngle([0,1,0], yawAngle));
+    viewState.rotation = quatMultiply(viewState.rotation, quatFromAxisAngle([1,0,0], pitchAngle));
+    viewState.rotation = quatNormalize(viewState.rotation);
+    if (viewState.rotation[0] < 0) viewState.rotation = viewState.rotation.map(v => -v);
+
+    drawAll();
+}
+
+function onPointerUp(e) {
+    if (e.pointerId === activePointerId) {
+        canvas.releasePointerCapture(activePointerId);
+        activePointerId = null;
+        controlsEnabled = (document.pointerLockElement === canvas);
+    }
+}
+
+
 
 const LOCAL_MOVE_VECTORS = {
     ArrowUp:    (s) => [ [0], [0],  [s] ],
@@ -131,11 +195,7 @@ const VIEW_VECTORS = {
     KeyE:  (s) => [[0], [-s], [0]]  // up
 };
 
-function keyDownHandler(e) {
-    if (NAV_KEYS.has(e.code)) {
-        e.preventDefault();   // stop the browser scrolling the page
-    }
-
+function handleGameKey(e) {
     const dir = (event.shiftKey) ? -1 : 1; 
     const speed = 0.1; 
     const cubeSpeed = 0.1;
