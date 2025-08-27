@@ -1,3 +1,9 @@
+/*
+ *
+ * Quaternion functions
+ *
+ */
+
 function quatIdentity() { return [1, 0, 0, 0]; }             // [w, x, y, z]
 
 function quatNormalize(q) {
@@ -18,14 +24,14 @@ function quatMultiply(a, b) {
 
 // axis as [x,y,z] vector
 function quatFromAxisAngle(axis, angle) {
-  let [x, y, z] = axis;
-  const len = Math.hypot(x, y, z);
-  if (len === 0) return [1, 0, 0, 0];
-  x /= len; y /= len; z /= len;
+    let [x, y, z] = axis;
+    const len = Math.hypot(x, y, z);
+    if (len === 0) return [1, 0, 0, 0];
+    x /= len; y /= len; z /= len;
 
-  const half = angle / 2;
-  const s = Math.sin(half);
-  return [Math.cos(half), x*s, y*s, z*s];  // unit quat if axis is unit
+    const half = angle / 2;
+    const s = Math.sin(half);
+    return [Math.cos(half), x * s, y * s, z * s];  // unit quat if axis is unit
 }
 
 // Rotate vector v by quaternion q
@@ -49,6 +55,47 @@ function quatConjugate(q) {
     return [q[0], -q[1], -q[2], -q[3]];
 }
 
+function quatToMatrix(q) {
+  // SAFETY: guard against slight drift — normalize first or scale by s
+    let [w, x, y, z] = q;
+    const s2 = w*w + x*x + y*y + z*z;
+    if (Math.abs(1 - s2) > 1e-6) {
+        const inv = 1 / Math.sqrt(s2);
+        w *= inv; x *= inv; y *= inv; z *= inv;
+    }
+
+    return [
+        [1 - 2*(y*y + z*z), 2*(x*y - z*w),   2*(x*z + y*w)],
+        [2*(x*y + z*w),     1 - 2*(x*x + z*z), 2*(y*z - x*w)],
+        [2*(x*z - y*w),     2*(y*z + x*w),   1 - 2*(x*x + y*y)]
+    ];
+}
+
+
+/*
+ *
+ * Vector functions
+ *
+ */
+
+/** clamp x to -1 <= x <= 1 */
+function clamp01(x) {
+    return Math.max(-1, Math.min(1, x));
+}
+function vlen(v) {
+    return Math.hypot(v[0], v[1], v[2]);
+}
+function vnorm(v) {
+    const L = vlen(v);
+    return L > 0 ? [v[0] / L, v[1] / L, v[2] / L] : [0,0,0];
+}
+function vdot(a,b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+function vcross(a,b) {
+    return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+}
+
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -64,14 +111,26 @@ const viewState = {
     zoom: 600
 };
 
+
+
 let fpsMode = true; // true = FPS/world-up yaw, false = free-fly
 
+// Pointer logic
 let controlsEnabled = false;     // "game mode" (true when mouse is locked or pointer captured)
 let activePointerId = null;      // for touch/stylus
 let lastX = 0, lastY = 0;
 
+// Key logic
 const held = new Set();
 let shiftHeld = false;
+
+// Tracking
+let trackEnabled = false;       // toggle with Enter
+let leadTime = 0.20;            // seconds: predict where camera will be
+let camVel = [0,0,0];           // world m/s estimate
+const maxTurnRate = 3.5;        // rad/s yaw/pitch (overall shortest-arc)
+const rollStabilize = 1.5;      // rad/s roll back toward world-up (0 to disable)
+
 
 // Keys that cause scrolling / navigation in the browser by default
 const NAV_KEYS = new Set([
@@ -124,14 +183,7 @@ function startGame() {
     document.addEventListener("keydown", (e) => {
         if (!controlsEnabled) return;
         if (NAV_KEYS.has(e.code)) e.preventDefault();
-
-        held.add(e.code);
-        if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
-            shiftHeld = true;
-        }
-        if (e.code === 'KeyF') {
-            fpsMode = !fpsMode; /* toggle mode */
-        }
+        keyDownHandler(e);
     }, { passive: false });
 
     document.addEventListener("keyup", (e) => {
@@ -144,6 +196,19 @@ function startGame() {
     requestAnimationFrame(tick);
 }
 
+
+function keyDownHandler(e) {
+    held.add(e.code);
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+        shiftHeld = true;
+    }
+    if (e.code === 'KeyF') {
+        fpsMode = !fpsMode; /* toggle FPS/free-fly mode */
+    }    
+    if (e.code === 'Enter') {
+        trackEnabled = !trackEnabled; /* toggle view-tracking */
+    }
+}
 
 
 const LOCAL_MOVE_VECTORS = {
@@ -164,25 +229,34 @@ const VIEW_VECTORS = {
     KeyE:  (s) => [[0], [-s], [0]]  // up
 };
 
+
 let lastTime = performance.now();
 
 function tick(now = performance.now()) {
     const dt = Math.min((now - lastTime) / 1000, 0.05); // seconds, clamp to avoid huge steps
     lastTime = now;
 
+    moveCube(dt);
+    controlView(dt)
+
+    drawAll();
+    requestAnimationFrame(tick);
+}
+
+function moveCube(dt) {
     // --- Tunables (per second) ---
     const cubeTurnRate   = 1.5;   // rad/s for R,P,Y
     const cubeMoveRate   = 1.0;   // units/s for arrows + PgUp/Dn
-    const camMoveRate    = 1.0;   // units/s for WASD + QE
-    const zoomRate       = 250;   // pixels/s for Z
 
     // --- Cube rotation: local R/P/Y (hold keys to rotate continuously) ---
     let anyTurn = false;
     let dq = quatIdentity();
     const sign = shiftHeld ? -1 : 1;
+
     if (held.has('KeyR')) { dq = quatMultiply(dq, quatFromAxisAngle([0,0,1], sign * cubeTurnRate * dt)); anyTurn = true; };
     if (held.has('KeyP')) { dq = quatMultiply(dq, quatFromAxisAngle([1,0,0], sign * cubeTurnRate * dt)); anyTurn = true; };
     if (held.has('KeyY')) { dq = quatMultiply(dq, quatFromAxisAngle([0,1,0], sign * cubeTurnRate * dt)); anyTurn = true; };
+
     if (anyTurn) {
         const r = quatNormalize(quatMultiply(gameState.rotation, dq)); // local
         gameState.rotation = (r[0] < 0)? r.map(v => -v) : r;        
@@ -194,6 +268,12 @@ function tick(now = performance.now()) {
         const world = quatRotateVector(gameState.rotation, cubeLocal);
         gameState.x += world[0]; gameState.y += world[1]; gameState.z += world[2];
     }
+}
+
+function controlView(dt) {
+    // --- Tunables (per second) ---
+    const camMoveRate    = 1.0;   // units/s for WASD + QE
+    const zoomRate       = 250;   // pixels/s for Z
 
     // --- Camera translation: WASD/QE (sum multiple keys) ---
     const camLocal = localMoveFromKeysHeld(held, VIEW_VECTORS, camMoveRate * dt);
@@ -206,11 +286,7 @@ function tick(now = performance.now()) {
     if (held.has('KeyZ')) {
         viewState.zoom += sign * zoomRate * dt;
     }
-
-    drawAll();
-    requestAnimationFrame(tick);
 }
-
 
 function localMoveFromKeysHeld(heldSet, vectorMap, step) {
     let x=0, y=0, z=0;
@@ -270,6 +346,7 @@ function onPointerMove(e) {
         q = quatMultiply(q, quatFromAxisAngle([1,0,0], pitchAngle));
         viewState.rotation = quatNormalize(q);
     }
+
     if (viewState.rotation[0] < 0) {
         viewState.rotation = viewState.rotation.map(v => -v);
     }
@@ -291,21 +368,6 @@ function drawAll() {
 }
 
 
-function quatToMatrix(q) {
-  // SAFETY: guard against slight drift — normalize first or scale by s
-  let [w, x, y, z] = q;
-  const s2 = w*w + x*x + y*y + z*z;
-  if (Math.abs(1 - s2) > 1e-6) {
-    const inv = 1 / Math.sqrt(s2);
-    w*=inv; x*=inv; y*=inv; z*=inv;
-  }
-
-  return [
-    [1 - 2*(y*y + z*z), 2*(x*y - z*w),   2*(x*z + y*w)],
-    [2*(x*y + z*w),     1 - 2*(x*x + z*z), 2*(y*z - x*w)],
-    [2*(x*z - y*w),     2*(y*z + x*w),   1 - 2*(x*x + y*y)]
-  ];
-}
 
 function drawCube() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
