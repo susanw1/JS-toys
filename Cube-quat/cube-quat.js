@@ -64,6 +64,7 @@ const viewState = {
     zoom: 600
 };
 
+let fpsMode = true; // true = FPS/world-up yaw, false = free-fly
 
 let controlsEnabled = false;     // "game mode" (true when mouse is locked or pointer captured)
 let activePointerId = null;      // for touch/stylus
@@ -127,6 +128,9 @@ function startGame() {
         held.add(e.code);
         if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
             shiftHeld = true;
+        }
+        if (e.code === 'KeyF') {
+            fpsMode = !fpsMode; /* toggle mode */
         }
     }, { passive: false });
 
@@ -230,7 +234,7 @@ function onPointerDown(e) {
 }
 
 function onPointerMove(e) {
-    const sensitivity = 0.0025;
+    const sensitivity = (e.pointerType === 'mouse') ? 0.0025 : 0.004;
     let dx = 0, dy = 0;
 
     if (document.pointerLockElement === canvas && e.pointerType === 'mouse') {
@@ -252,9 +256,23 @@ function onPointerMove(e) {
     const yawAngle   = dx * sensitivity;
     const pitchAngle = -dy * sensitivity;
 
-    let r = quatMultiply(viewState.rotation, quatFromAxisAngle([0,1,0], yawAngle));
-    r = quatNormalize(quatMultiply(r, quatFromAxisAngle([1,0,0], pitchAngle)));
-    viewState.rotation = (r[0] < 0)? r.map(v => -v) : r;
+    if (fpsMode) {
+        // FPS: yaw about world-up, then pitch about camera-right
+        const qYawWorld   = quatFromAxisAngle([0,1,0], yawAngle);
+        let q = quatMultiply(qYawWorld, viewState.rotation); // pre-multiply = world axis
+        const right = quatRotateVector(q, [1,0,0]);
+        const qPitchRight = quatFromAxisAngle(right, pitchAngle);
+        q = quatMultiply(qPitchRight, q);                    // pre-multiply (world axis)
+        viewState.rotation = quatNormalize(q);
+    } else {
+        // Free-fly: local yaw then local pitch (right-multiply)
+        let q = quatMultiply(viewState.rotation, quatFromAxisAngle([0,1,0], yawAngle));
+        q = quatMultiply(q, quatFromAxisAngle([1,0,0], pitchAngle));
+        viewState.rotation = quatNormalize(q);
+    }
+    if (viewState.rotation[0] < 0) {
+        viewState.rotation = viewState.rotation.map(v => -v);
+    }
 
     drawAll();
 }
