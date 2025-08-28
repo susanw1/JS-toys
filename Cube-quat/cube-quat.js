@@ -26,11 +26,11 @@ const held = new Set();
 let shiftHeld = false;
 
 // Tracking
-let trackEnabled = false;       // toggle with Enter
-let leadTime = 10;            // seconds: predict where camera will be
-let camVel = [0,0,0];           // world m/s estimate
-const maxTurnRate = 0.2;        // rad/s yaw/pitch (overall shortest-arc)
-const rollStabilize = 1.5;      // rad/s roll back toward world-up (0 to disable)
+let trackEnabled = false;           // toggle with Enter
+let leadTime = 1.0;                 // seconds: predict where camera will be
+let camVel = [0,0,0];               // world m/s estimate
+const maxTrackingTurnRate = 0.2;    // rad/s yaw/pitch (overall shortest-arc)
+const rollStabilize = 0.5;          // rad/s roll back toward world-up (0 to disable)
 
 
 // Keys that cause scrolling / navigation in the browser by default
@@ -266,29 +266,28 @@ function onPointerUp(e) {
 }
 
 function drawAll() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawGroundGrid();
     drawCube();
     drawCrosshairs();
 }
 
 
-
 function drawCube() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const R = quatToMatrix(gameState.rotation); // unit-safe
+    const cx = gameState.x, cy = gameState.y, cz = gameState.z;
 
-  const R = quatToMatrix(gameState.rotation); // unit-safe
-  const cx = gameState.x, cy = gameState.y, cz = gameState.z;
+    // transform vertices (local -> world)
+    const verts = new Array(CUBE_DEF.vertices.length);
+    for (let i = 0; i < CUBE_DEF.vertices.length; i++) {
+        const [x, y, z] = CUBE_DEF.vertices[i];
+        const rx = x * R[0][0] + y * R[0][1] + z * R[0][2];
+        const ry = x * R[1][0] + y * R[1][1] + z * R[1][2];
+        const rz = x * R[2][0] + y * R[2][1] + z * R[2][2];
+        verts[i] = [rx + cx, ry + cy, rz + cz];
+    }
 
-  // transform vertices (local -> world)
-  const verts = new Array(CUBE_DEF.vertices.length);
-  for (let i = 0; i < CUBE_DEF.vertices.length; i++) {
-    const [x, y, z] = CUBE_DEF.vertices[i];
-    const rx = x*R[0][0] + y*R[0][1] + z*R[0][2];
-    const ry = x*R[1][0] + y*R[1][1] + z*R[1][2];
-    const rz = x*R[2][0] + y*R[2][1] + z*R[2][2];
-    verts[i] = [rx + cx, ry + cy, rz + cz];
-  }
-
-  drawVectors(CUBE_DEF.edges, verts, viewState);
+    drawVectors(CUBE_DEF.edges, verts, viewState);
 }
 
 
@@ -327,7 +326,6 @@ function drawCrosshairs() {
     ctx.beginPath();
     ctx.moveTo(w-sz, h);
     ctx.lineTo(w+sz, h);
-    ctx.stroke();
     ctx.moveTo(w, h - sz);
     ctx.lineTo(w, h + sz);
     ctx.stroke();
@@ -335,6 +333,66 @@ function drawCrosshairs() {
 }
 
 
+function drawGroundGrid(size=40, step=2) {
+    ctx.save();
+    ctx.beginPath();
+    // Fainter lines further away (simple fog)
+    ctx.strokeStyle = '#789';
+    ctx.globalAlpha = 0.5;
+
+    // Lines parallel to Z (vary X)
+    for (let x = -size; x <= size; x += step) {
+        drawWorldSegment([x, 0, -size], [x, 0, size], viewState);
+    }
+    // Lines parallel to X (vary Z)
+    for (let z = -size; z <= size; z += step) {
+        drawWorldSegment([-size, 0, z], [size, 0, z], viewState);
+    }
+    ctx.stroke();
+      ctx.restore();
+}
+
+function worldToCameraVec(x, y, z, vs) {
+    const dx = x - vs.x, dy = y - vs.y, dz = z - vs.z;
+    const qInv = quatConjugate(vs.rotation);
+    return quatRotateVector(qInv, [dx, dy, dz]); // [xc, yc, zc]
+}
+
+// Clip a camera-space segment against z = near. Returns null (fully behind) or [p1c, p2c].
+function clipCamSegmentNear(p1c, p2c, near = 0.01) {
+    const z1 = p1c[2], z2 = p2c[2];
+    const in1 = z1 >= near, in2 = z2 >= near;
+
+    if (!in1 && !in2) return null;            // fully behind
+    if (in1 && in2)  return [p1c, p2c];       // fully in front
+
+    // One point behind, one in front: intersect with z = near
+    const t = (near - z1) / (z2 - z1);        // 0..1 along p1->p2
+    const xi = p1c[0] + t * (p2c[0] - p1c[0]);
+    const yi = p1c[1] + t * (p2c[1] - p1c[1]);
+    const zi = near;
+
+    return in1 ? [p1c, [xi, yi, zi]] : [[xi, yi, zi], p2c];
+}
+
+function projectCam(p, vs) {
+    const [xc, yc, zc] = p;
+    const w = canvas.width, h = canvas.height, zoom = vs.zoom;
+    return [ (xc / zc) * zoom + w/2, (yc / zc) * zoom + h/2 ];
+}
+
+// Draw a single grid segment on the world y=0 plane, with proper near clipping.
+function drawWorldSegment(p1w, p2w, vs) {
+    const p1c = worldToCameraVec(p1w[0], p1w[1], p1w[2], vs);
+    const p2c = worldToCameraVec(p2w[0], p2w[1], p2w[2], vs);
+    const clipped = clipCamSegmentNear(p1c, p2c, 0.01);
+    if (!clipped) return;
+
+    const a = projectCam(clipped[0], vs);
+    const b = projectCam(clipped[1], vs);
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+}
 
 function worldToCameraPoint(x, y, z, vs) {
     const dx = x - vs.x;
@@ -369,7 +427,7 @@ function updateTracking(dt) {
         viewState.z + camVel[2]*leadTime
     ];
     const toCam = [target[0]-gameState.x, target[1]-gameState.y, target[2]-gameState.z];
-    const step = maxTurnRate * dt;
+    const step = maxTrackingTurnRate * dt;
     gameState.rotation = shortestArcStep(
         gameState.rotation,
         [0,0,1],            // cube's local forward
