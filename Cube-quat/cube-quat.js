@@ -1,102 +1,3 @@
-/*
- *
- * Quaternion functions
- *
- */
-
-function quatIdentity() { return [1, 0, 0, 0]; }             // [w, x, y, z]
-
-function quatNormalize(q) {
-    const len = Math.hypot(...q);
-    return q.map(v => v / len);
-}
-
-function quatMultiply(a, b) {
-    const [aw, ax, ay, az] = a;
-    const [bw, bx, by, bz] = b;
-    return [
-        aw*bw - ax*bx - ay*by - az*bz,
-        aw*bx + ax*bw + ay*bz - az*by,
-        aw*by - ax*bz + ay*bw + az*bx,
-        aw*bz + ax*by - ay*bx + az*bw
-    ];
-}
-
-// axis as [x,y,z] vector
-function quatFromAxisAngle(axis, angle) {
-    let [x, y, z] = axis;
-    const len = Math.hypot(x, y, z);
-    if (len === 0) return [1, 0, 0, 0];
-    x /= len; y /= len; z /= len;
-
-    const half = angle / 2;
-    const s = Math.sin(half);
-    return [Math.cos(half), x * s, y * s, z * s];  // unit quat if axis is unit
-}
-
-// Rotate vector v by quaternion q
-function quatRotateVector(q, v) {
-    const [w, x, y, z] = q;
-    const [vx, vy, vz] = v;
-    const uvx  = 2 * (y * vz - z * vy);
-    const uvy  = 2 * (z * vx - x * vz);
-    const uvz  = 2 * (x * vy - y * vx);
-    const uuvx = y * uvz - z * uvy;
-    const uuvy = z * uvx - x * uvz;
-    const uuvz = x * uvy - y * uvx;
-    return [
-        vx + w * uvx + uuvx,
-        vy + w * uvy + uuvy,
-        vz + w * uvz + uuvz
-    ];
-}
-
-function quatConjugate(q) {
-    return [q[0], -q[1], -q[2], -q[3]];
-}
-
-function quatToMatrix(q) {
-  // SAFETY: guard against slight drift — normalize first or scale by s
-    let [w, x, y, z] = q;
-    const s2 = w*w + x*x + y*y + z*z;
-    if (Math.abs(1 - s2) > 1e-6) {
-        const inv = 1 / Math.sqrt(s2);
-        w *= inv; x *= inv; y *= inv; z *= inv;
-    }
-
-    return [
-        [1 - 2*(y*y + z*z), 2*(x*y - z*w),   2*(x*z + y*w)],
-        [2*(x*y + z*w),     1 - 2*(x*x + z*z), 2*(y*z - x*w)],
-        [2*(x*z - y*w),     2*(y*z + x*w),   1 - 2*(x*x + y*y)]
-    ];
-}
-
-
-/*
- *
- * Vector functions
- *
- */
-
-/** clamp x to -1 <= x <= 1 */
-function clamp01(x) {
-    return Math.max(-1, Math.min(1, x));
-}
-function vlen(v) {
-    return Math.hypot(v[0], v[1], v[2]);
-}
-function vnorm(v) {
-    const L = vlen(v);
-    return L > 0 ? [v[0] / L, v[1] / L, v[2] / L] : [0,0,0];
-}
-function vdot(a,b) {
-    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-}
-function vcross(a,b) {
-    return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-}
-
-
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -126,9 +27,9 @@ let shiftHeld = false;
 
 // Tracking
 let trackEnabled = false;       // toggle with Enter
-let leadTime = 0.20;            // seconds: predict where camera will be
+let leadTime = 10;            // seconds: predict where camera will be
 let camVel = [0,0,0];           // world m/s estimate
-const maxTurnRate = 3.5;        // rad/s yaw/pitch (overall shortest-arc)
+const maxTurnRate = 0.2;        // rad/s yaw/pitch (overall shortest-arc)
 const rollStabilize = 1.5;      // rad/s roll back toward world-up (0 to disable)
 
 
@@ -236,8 +137,10 @@ function tick(now = performance.now()) {
     const dt = Math.min((now - lastTime) / 1000, 0.05); // seconds, clamp to avoid huge steps
     lastTime = now;
 
+    updateCameraVelocity(dt);   // <— track camera velocity first
     moveCube(dt);
-    controlView(dt)
+    controlView(dt);
+    updateTracking(dt);         // <— strategy layer: aim/lead/roll-damp
 
     drawAll();
     requestAnimationFrame(tick);
@@ -251,11 +154,11 @@ function moveCube(dt) {
     // --- Cube rotation: local R/P/Y (hold keys to rotate continuously) ---
     let anyTurn = false;
     let dq = quatIdentity();
-    const sign = shiftHeld ? -1 : 1;
+    const turnAmount = (shiftHeld ? -1 : 1) * cubeTurnRate * dt;
 
-    if (held.has('KeyR')) { dq = quatMultiply(dq, quatFromAxisAngle([0,0,1], sign * cubeTurnRate * dt)); anyTurn = true; };
-    if (held.has('KeyP')) { dq = quatMultiply(dq, quatFromAxisAngle([1,0,0], sign * cubeTurnRate * dt)); anyTurn = true; };
-    if (held.has('KeyY')) { dq = quatMultiply(dq, quatFromAxisAngle([0,1,0], sign * cubeTurnRate * dt)); anyTurn = true; };
+    if (held.has('KeyR')) { dq = quatMultiply(dq, quatFromAxisAngle([0,0,1], turnAmount)); anyTurn = true; };
+    if (held.has('KeyP')) { dq = quatMultiply(dq, quatFromAxisAngle([1,0,0], turnAmount)); anyTurn = true; };
+    if (held.has('KeyY')) { dq = quatMultiply(dq, quatFromAxisAngle([0,1,0], turnAmount)); anyTurn = true; };
 
     if (anyTurn) {
         const r = quatNormalize(quatMultiply(gameState.rotation, dq)); // local
@@ -284,7 +187,7 @@ function controlView(dt) {
 
     // --- Zoom (continuous when Z held; Shift inverts) ---
     if (held.has('KeyZ')) {
-        viewState.zoom += sign * zoomRate * dt;
+        viewState.zoom += (shiftHeld ? -1 : 1) * zoomRate * dt;
     }
 }
 
@@ -389,16 +292,6 @@ function drawCube() {
 }
 
 
-function worldToCameraPoint(x, y, z, vs) {
-  const dx = x - vs.x;
-  const dy = y - vs.y;
-  const dz = z - vs.z;
-
-  const qInv = quatConjugate(vs.rotation);         // inverse of camera pose
-  const [xc, yc, zc] = quatRotateVector(qInv, [dx, dy, dz]);
-  return [xc, yc, zc];
-}
-
 function drawVectors(edges, verts, vs) {
     const w = canvas.width, h = canvas.height;
     const zoom = vs.zoom;
@@ -440,4 +333,235 @@ function drawCrosshairs() {
     ctx.stroke();
     ctx.closePath();
 }
+
+
+
+function worldToCameraPoint(x, y, z, vs) {
+    const dx = x - vs.x;
+    const dy = y - vs.y;
+    const dz = z - vs.z;
+
+    const qInv = quatConjugate(vs.rotation);         // inverse of camera pose
+    const [xc, yc, zc] = quatRotateVector(qInv, [dx, dy, dz]);
+    return [xc, yc, zc];
+}
+
+
+function updateCameraVelocity(dt) {
+    const cx = viewState.x, cy = viewState.y, cz = viewState.z;
+    camVel = [(cx - updateCameraVelocity._px)/dt || 0,
+            (cy - updateCameraVelocity._py)/dt || 0,
+            (cz - updateCameraVelocity._pz)/dt || 0];
+    updateCameraVelocity._px = cx; updateCameraVelocity._py = cy; updateCameraVelocity._pz = cz;
+}
+updateCameraVelocity._px = viewState.x;
+updateCameraVelocity._py = viewState.y;
+updateCameraVelocity._pz = viewState.z;
+
+
+function updateTracking(dt) {
+    if (!trackEnabled) return;
+
+    // Predict where the camera will be (lead)
+    const target = [
+        viewState.x + camVel[0]*leadTime,
+        viewState.y + camVel[1]*leadTime,
+        viewState.z + camVel[2]*leadTime
+    ];
+    const toCam = [target[0]-gameState.x, target[1]-gameState.y, target[2]-gameState.z];
+    const step = maxTurnRate * dt;
+    gameState.rotation = shortestArcStep(
+        gameState.rotation,
+        [0,0,1],            // cube's local forward
+        toCam,              // desired world forward
+        step,
+        [0,1,0],            // world up
+        rollStabilize * dt  // roll correction per frame (rad)
+    );
+}
+
+
+function shortestArcStep(currentQuat, fromDirLocal, toDirWorld, maxStepRad, worldUp=[0,1,0], rollRate=0) {
+    // Rotate current local 'fromDirLocal' into world space
+    const fCur = quatRotateVector(currentQuat, fromDirLocal);       // world
+    const fDes = vnorm(toDirWorld);                                 // world
+
+    // Yaw/pitch step toward target (shortest arc)
+    let axis = vcross(fCur, fDes);
+    const sinA = vlen(axis);
+    const cosA = clampUnit(vdot(fCur, fDes));            // [-1,1]
+    const ang = Math.atan2(sinA, cosA);                  // [0, π]
+
+    axis = (sinA > 1e-9) ? [axis[0]/sinA, axis[1]/sinA, axis[2]/sinA] : [0,0,0];
+
+    const step = Math.min(ang, maxStepRad);
+    // world-axis rotation ⇒ pre-multiply
+    let q = (step > 1e-6 && sinA > 1e-9) ? quatMultiply(quatFromAxisAngle(axis, step), currentQuat) : currentQuat;
+
+    // Optional: roll stabilize toward world up, without changing forward direction
+    if (rollRate > 0) {
+        const fNow = quatRotateVector(q, fromDirLocal);
+        // Project world up onto plane ⟂ forward
+        const upProj = vnorm([
+          worldUp[0] - fNow[0] * vdot(worldUp, fNow),
+          worldUp[1] - fNow[1] * vdot(worldUp, fNow),
+          worldUp[2] - fNow[2] * vdot(worldUp, fNow),
+        ]);
+        const rNow = quatRotateVector(q, [1,0,0]);    // cube's right in world
+        const uNow = vcross(fNow, rNow);              // recompute local up in world
+
+        // Roll error is the angle between uNow and upProj around fNow
+        let ax = vcross(uNow, upProj);
+        const s = vlen(ax);
+        const c = clampUnit(vdot(uNow, upProj));
+        let rollErr = Math.atan2(s, c);               // [0, π]
+        if (s > 1e-9) {
+            ax = [ax[0]/s, ax[1]/s, ax[2]/s];
+            // Sign of roll: if ax aligns with forward, positive, else negative
+            if (vdot(ax, fNow) < 0) {
+                rollErr = -rollErr;
+            }
+            const rollStep = Math.sign(rollErr) * Math.min(Math.abs(rollErr), rollRate);
+            if (Math.abs(rollStep) > 1e-6) {
+                q = quatMultiply(quatFromAxisAngle(fNow, rollStep), q);
+            }
+        }
+    }
+
+    return quatNormalize(q);
+}
+
+function quatLookRotation(forward, upHint=[0,1,0]) {
+    const f = vnorm(forward);
+    let r = vcross(upHint, f);
+    let rl = vlen(r);
+    if (rl < 1e-8) {
+        r = [1,0,0], rl = 1; // fallback
+    }
+    r = [ r[0] / rl, r[1] / rl, r[2] / rl ];
+    const u = vcross(f, r);
+
+    const m00=r[0], m01=u[0], m02=f[0];
+    const m10=r[1], m11=u[1], m12=f[1];
+    const m20=r[2], m21=u[2], m22=f[2];
+
+    const t = m00 + m11 + m22;
+    let w,x,y,z;
+    if (t > 0) {
+        const s = Math.sqrt(t + 1.0) * 2;
+        w = 0.25 * s; x = (m21 - m12) / s; y = (m02 - m20) / s; z = (m10 - m01) / s;
+    } else if (m00 > m11 && m00 > m22) {
+        const s = Math.sqrt(1.0 + m00 - m11 - m22) * 2;
+        w = (m21 - m12) / s; x = 0.25 * s; y = (m01 + m10) / s; z = (m02 + m20) / s;
+    } else if (m11 > m22) {
+        const s = Math.sqrt(1.0 + m11 - m00 - m22) * 2;
+        w = (m02 - m20) / s; x = (m01 + m10) / s; y = 0.25 * s; z = (m12 + m21) / s;
+    } else {
+        const s = Math.sqrt(1.0 + m22 - m00 - m11) * 2;
+        w = (m10 - m01) / s; x = (m02 + m20) / s; y = (m12 + m21) / s; z = 0.25 * s;
+    }
+    return quatNormalize([w,x,y,z]);
+}
+
+
+/*
+ *
+ * Quaternion functions
+ *
+ */
+
+function quatIdentity() { return [1, 0, 0, 0]; }             // [w, x, y, z]
+
+function quatNormalize(q) {
+    const len = Math.hypot(...q);
+    return q.map(v => v / len);
+}
+
+function quatMultiply(a, b) {
+    const [aw, ax, ay, az] = a;
+    const [bw, bx, by, bz] = b;
+    return [
+        aw*bw - ax*bx - ay*by - az*bz,
+        aw*bx + ax*bw + ay*bz - az*by,
+        aw*by - ax*bz + ay*bw + az*bx,
+        aw*bz + ax*by - ay*bx + az*bw
+    ];
+}
+
+// axis as [x,y,z] vector
+function quatFromAxisAngle(axis, angle) {
+    let [x, y, z] = axis;
+    const len = Math.hypot(x, y, z);
+    if (len === 0) return [1, 0, 0, 0];
+    x /= len; y /= len; z /= len;
+
+    const half = angle / 2;
+    const s = Math.sin(half);
+    return [Math.cos(half), x * s, y * s, z * s];  // unit quat if axis is unit
+}
+
+// Rotate vector v by quaternion q
+function quatRotateVector(q, v) {
+    const [w, x, y, z] = q;
+    const [vx, vy, vz] = v;
+    const uvx  = 2 * (y * vz - z * vy);
+    const uvy  = 2 * (z * vx - x * vz);
+    const uvz  = 2 * (x * vy - y * vx);
+    const uuvx = y * uvz - z * uvy;
+    const uuvy = z * uvx - x * uvz;
+    const uuvz = x * uvy - y * uvx;
+    return [
+        vx + w * uvx + uuvx,
+        vy + w * uvy + uuvy,
+        vz + w * uvz + uuvz
+    ];
+}
+
+function quatConjugate(q) {
+    return [q[0], -q[1], -q[2], -q[3]];
+}
+
+function quatToMatrix(q) {
+  // SAFETY: guard against slight drift — normalize first or scale by s
+    let [w, x, y, z] = q;
+    const s2 = w*w + x*x + y*y + z*z;
+    if (Math.abs(1 - s2) > 1e-6) {
+        const inv = 1 / Math.sqrt(s2);
+        w *= inv; x *= inv; y *= inv; z *= inv;
+    }
+
+    return [
+        [1 - 2*(y*y + z*z), 2*(x*y - z*w),   2*(x*z + y*w)],
+        [2*(x*y + z*w),     1 - 2*(x*x + z*z), 2*(y*z - x*w)],
+        [2*(x*z - y*w),     2*(y*z + x*w),   1 - 2*(x*x + y*y)]
+    ];
+}
+
+
+/*
+ *
+ * Vector functions
+ *
+ */
+
+/** clamp x to -1 <= x <= 1 */
+function clampUnit(x) {
+    return Math.max(-1, Math.min(1, x));
+}
+function vlen(v) {
+    return Math.hypot(v[0], v[1], v[2]);
+}
+function vnorm(v) {
+    const L = vlen(v);
+    return L > 0 ? [v[0] / L, v[1] / L, v[2] / L] : [0,0,0];
+}
+function vdot(a,b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+function vcross(a,b) {
+    return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+}
+
+
+
 
