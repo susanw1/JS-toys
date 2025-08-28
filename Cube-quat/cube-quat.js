@@ -32,6 +32,7 @@ let camVel = [0,0,0];               // world m/s estimate
 const maxTrackingTurnRate = 0.2;    // rad/s yaw/pitch (overall shortest-arc)
 const rollStabilize = 0.5;          // rad/s roll back toward world-up (0 to disable)
 
+const NEAR = 0.01;
 
 // Keys that cause scrolling / navigation in the browser by default
 const NAV_KEYS = new Set([
@@ -57,6 +58,7 @@ function startGame() {
     
     document.addEventListener('pointerlockchange', () => {
         controlsEnabled = (document.pointerLockElement === canvas) || (activePointerId !== null);
+        if (!controlsEnabled) { held.clear(); shiftHeld = false; }
     });
 
     // POINTER DOWN: record start of pointer action
@@ -81,7 +83,13 @@ function startGame() {
         onPointerUp(e);
     });
 
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault(), { passive:false });
+
     document.addEventListener("keydown", (e) => {
+        if (e.code === 'Escape') {
+            document.exitPointerLock?.();
+            activePointerId = null;
+        }
         if (!controlsEnabled) return;
         if (NAV_KEYS.has(e.code)) e.preventDefault();
         keyDownHandler(e);
@@ -187,7 +195,7 @@ function controlView(dt) {
 
     // --- Zoom (continuous when Z held; Shift inverts) ---
     if (held.has('KeyZ')) {
-        viewState.zoom += (shiftHeld ? -1 : 1) * zoomRate * dt;
+        viewState.zoom = Math.max(50, Math.min(4000, viewState.zoom + (shiftHeld ? -1 : 1) * zoomRate * dt));
     }
 }
 
@@ -270,6 +278,7 @@ function drawAll() {
     drawGroundGrid();
     drawCube();
     drawCrosshairs();
+    drawHUD();
 }
 
 
@@ -301,7 +310,7 @@ function drawVectors(edges, verts, vs) {
         for (const vi of eList) {
             const [xc, yc, zc] = worldToCameraPoint(verts[vi][0], verts[vi][1], verts[vi][2], vs);
             if (zc <= 0) { started = false; continue; }
-            const safeZ = Math.max(zc, 0.01);
+            const safeZ = Math.max(zc, NEAR);
             const px = (xc / safeZ) * zoom + w/2;
             const py = (yc / safeZ) * zoom + h/2;
 
@@ -332,6 +341,21 @@ function drawCrosshairs() {
     ctx.closePath();
 }
 
+function drawHUD() {
+    ctx.save();
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.font = '12px system-ui, sans-serif';
+    const lines = [
+        `Mode: ${fpsMode ? 'FPS' : 'Free-fly'}`,
+        `Track: ${trackEnabled ? 'ON' : 'OFF'}`,
+        `Zoom: ${Math.round(viewState.zoom)}`
+    ];
+    let x = 10, y = 18;
+    for (const t of lines) {
+        ctx.strokeText(t, x, y); ctx.fillText(t, x, y); y += 14;
+    }
+    ctx.restore();
+}
 
 function drawGroundGrid(size=40, step=2) {
     ctx.save();
@@ -359,7 +383,7 @@ function worldToCameraVec(x, y, z, vs) {
 }
 
 // Clip a camera-space segment against z = near. Returns null (fully behind) or [p1c, p2c].
-function clipCamSegmentNear(p1c, p2c, near = 0.01) {
+function clipCamSegmentNear(p1c, p2c, near = NEAR) {
     const z1 = p1c[2], z2 = p2c[2];
     const in1 = z1 >= near, in2 = z2 >= near;
 
@@ -385,7 +409,7 @@ function projectCam(p, vs) {
 function drawWorldSegment(p1w, p2w, vs) {
     const p1c = worldToCameraVec(p1w[0], p1w[1], p1w[2], vs);
     const p2c = worldToCameraVec(p2w[0], p2w[1], p2w[2], vs);
-    const clipped = clipCamSegmentNear(p1c, p2c, 0.01);
+    const clipped = clipCamSegmentNear(p1c, p2c, NEAR);
     if (!clipped) return;
 
     const a = projectCam(clipped[0], vs);
