@@ -3,8 +3,19 @@ import { Entity } from "./core/entity.js";
 import { Camera } from "./core/camera.js";
 import { Viewer } from "./render/viewer.js";
 
-import { quatFromAxisAngle, quatMultiply, quatNormalize, quatRotateVector } from "./math/quat.js";
-import { vadd, vsub, vscale } from "./math/vec3.js";
+import {
+    quatFromAxisAngle,
+    quatMultiply,
+    quatNormalize,
+    quatRotateVector
+} from "./math/quat.js";
+
+import {
+    vadd,
+    vsub,
+    vscale
+} from "./math/vec3.js";
+
 import { shortestArcStep } from "./tracking/shortestArc.js";
 
 // ---------- Tunables ----------
@@ -20,7 +31,7 @@ export const TUNE = {
     touchSensitivity: 0.004       // rad / px (touch)
 };
 
-// ---------- Mesh (same as before) ----------
+// ---------- Mesh ----------
 export const CUBE_MESH = {
     vertices: [
         [-1, -0.75, -1.5], [-1, -0.75,  1.5], [-1,  0.75,  1.5], [-1,  0.75, -1.5],
@@ -34,7 +45,7 @@ export const CUBE_MESH = {
     ]
 };
 
-// ---------- Input state ----------
+// ---------- Input maps ----------
 const NAV_KEYS = new Set([
     "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
     "PageUp", "PageDown", "Home", "End", "Space"
@@ -60,12 +71,12 @@ const VIEW_VECTORS = {
 
 // ---------- App factory ----------
 export function createScene(canvas) {
-    // Scene
+    // Scene objects
     const viewer = new Viewer(canvas, { drawGrid: true });
     const cube = new Entity({ position: [0, 0, 5], mesh: CUBE_MESH });
     const camera = new Camera({ position: [0, 0, 0], zoom: 600, near: 0.01 });
 
-    // Modes and runtime state
+    // Runtime state
     let fpsMode = true;                  // true = FPS world-up yaw, false = free-fly
     let trackEnabled = false;            // Enter toggles
     let controlsEnabled = false;         // set when pointer locked or touch captured
@@ -79,9 +90,11 @@ export function createScene(canvas) {
     // Camera velocity estimation
     let camVel = [0, 0, 0];
     let prevCamPos = camera.position.slice();
+
+    // Timing
     let lastTime = performance.now();
 
-    // ---------- Helpers ----------
+    // ===== Helpers =====
     function localMoveFromHeld(heldSet, vectorMap, step) {
         let x = 0;
         let y = 0;
@@ -105,30 +118,32 @@ export function createScene(canvas) {
         prevCamPos = camera.position.slice();
     }
 
-    // ---------- Input wiring ----------
-    canvas.addEventListener("click", () => {
+    // ===== Handlers (extracted) =====
+    function onCanvasClick() {
         if (document.pointerLockElement !== canvas) {
             canvas.requestPointerLock?.();
         }
-    });
+    }
 
-    document.addEventListener("pointerlockchange", () => {
+    function onPointerLockChange() {
         controlsEnabled = (document.pointerLockElement === canvas) || (activePointerId !== null);
-    });
+    }
 
-    canvas.addEventListener("pointerdown", (e) => {
+    function onPointerDown(e) {
         if (e.pointerType === "mouse") {
             return;
         }
+
         activePointerId = e.pointerId;
         canvas.setPointerCapture(activePointerId);
         controlsEnabled = true;
         lastX = e.clientX;
         lastY = e.clientY;
-        e.preventDefault();
-    }, { passive: false });
 
-    canvas.addEventListener("pointermove", (e) => {
+        e.preventDefault();
+    }
+
+    function onPointerMove(e) {
         if (!controlsEnabled) {
             return;
         }
@@ -171,28 +186,21 @@ export function createScene(canvas) {
         if (camera.rotation[0] < 0) {
             camera.rotation = camera.rotation.map(v => -v);
         }
-    }, { passive: false });
+    }
 
-    canvas.addEventListener("pointerup", (e) => {
+    function onPointerUp(e) {
         if (e.pointerId === activePointerId) {
             canvas.releasePointerCapture(activePointerId);
             activePointerId = null;
             controlsEnabled = (document.pointerLockElement === canvas);
         }
-    }, { passive: false });
+    }
 
-    canvas.addEventListener("pointercancel", (e) => {
-        if (e.pointerId === activePointerId) {
-            canvas.releasePointerCapture(activePointerId);
-            activePointerId = null;
-            controlsEnabled = (document.pointerLockElement === canvas);
-        }
-    });
-
-    document.addEventListener("keydown", (e) => {
+    function onKeyDown(e) {
         if (!controlsEnabled) {
             return;
         }
+
         if (NAV_KEYS.has(e.code)) {
             e.preventDefault();
         }
@@ -208,21 +216,21 @@ export function createScene(canvas) {
         if (e.code === "Enter") {
             trackEnabled = !trackEnabled;
         }
-    }, { passive: false });
+    }
 
-    document.addEventListener("keyup", (e) => {
+    function onKeyUp(e) {
         held.delete(e.code);
 
         if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
             shiftHeld = held.has("ShiftLeft") || held.has("ShiftRight");
         }
-    }, { passive: false });
+    }
 
-    // ---------- Per-frame updates ----------
+    // ===== Per-frame actions (unchanged behavior) =====
     function moveCube(dt) {
-        // Rotation (local R/P/Y)
         let dq = null;
         const sign = shiftHeld ? -1 : 1;
+
         if (held.has("KeyR")) {
             dq = (dq ?? [1, 0, 0, 0]);
             dq = quatMultiply(dq, quatFromAxisAngle([0, 0, 1], sign * TUNE.cubeTurnRate * dt));
@@ -235,6 +243,7 @@ export function createScene(canvas) {
             dq = (dq ?? [1, 0, 0, 0]);
             dq = quatMultiply(dq, quatFromAxisAngle([0, 1, 0], sign * TUNE.cubeTurnRate * dt));
         }
+
         if (dq) {
             cube.rotation = quatNormalize(quatMultiply(cube.rotation, dq));
             if (cube.rotation[0] < 0) {
@@ -242,7 +251,6 @@ export function createScene(canvas) {
             }
         }
 
-        // Translation (arrows + PageUp/Down) in local space
         const step = TUNE.cubeMoveRate * dt;
         const vLocal = localMoveFromHeld(held, LOCAL_MOVE_VECTORS, step);
         if (vLocal[0] || vLocal[1] || vLocal[2]) {
@@ -252,7 +260,6 @@ export function createScene(canvas) {
     }
 
     function controlView(dt) {
-        // Camera translation (WASD + QE) in local space
         const step = TUNE.camMoveRate * dt;
         const vLocal = localMoveFromHeld(held, VIEW_VECTORS, step);
         if (vLocal[0] || vLocal[1] || vLocal[2]) {
@@ -260,7 +267,6 @@ export function createScene(canvas) {
             camera.position = vadd(camera.position, world);
         }
 
-        // Zoom
         if (held.has("KeyZ")) {
             const sign = shiftHeld ? -1 : 1;
             camera.zoom += sign * TUNE.zoomRate * dt;
@@ -275,21 +281,20 @@ export function createScene(canvas) {
             return;
         }
 
-        // Predict camera future position
         const target = vadd(camera.position, vscale(camVel, TUNE.leadTime));
         const toCam = vsub(target, cube.position);
 
         cube.rotation = shortestArcStep(
             cube.rotation,
-            [0, 0, 1],                      // cube's local +Z is "forward"
-            toCam,                           // desired world forward
-            TUNE.maxTrackingTurnRate * dt,   // capped step
-            [0, 1, 0],                       // world up
-            TUNE.rollStabilize * dt          // roll correction per frame
+            [0, 0, 1],                        // cube local forward
+            toCam,                             // desired world forward
+            TUNE.maxTrackingTurnRate * dt,     // limited step
+            [0, 1, 0],                         // world up
+            TUNE.rollStabilize * dt            // roll correction per frame
         );
     }
 
-    // ---------- Main loop ----------
+    // ===== Main loop =====
     function tick(now = performance.now()) {
         const dt = Math.min((now - lastTime) / 1000, 0.05);
         lastTime = now;
@@ -303,9 +308,22 @@ export function createScene(canvas) {
         requestAnimationFrame(tick);
     }
 
+    // ===== Wire listeners =====
+    canvas.addEventListener("click", onCanvasClick);
+    document.addEventListener("pointerlockchange", onPointerLockChange);
+
+    canvas.addEventListener("pointerdown", onPointerDown, { passive: false });
+    canvas.addEventListener("pointermove", onPointerMove, { passive: false });
+    canvas.addEventListener("pointerup", onPointerUp, { passive: false });
+    canvas.addEventListener("pointercancel", onPointerUp);
+
+    document.addEventListener("keydown", onKeyDown, { passive: false });
+    document.addEventListener("keyup", onKeyUp, { passive: false });
+
+    // Boot
     requestAnimationFrame(tick);
 
-    // Expose a tiny control surface for debugging/tweaking
+    // Small control surface
     return {
         viewer,
         cube,
