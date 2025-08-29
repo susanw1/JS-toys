@@ -6,4 +6,5 @@ Playground for writing Javascript apps:
   <li><a href="https://susanw1.github.io/JS-toys/Blobs">Blobs</a></li>
   <li><a href="https://susanw1.github.io/JS-toys/Cube-euler">Cube (Euler)</a></li>
   <li><a href="https://susanw1.github.io/JS-toys/Cube-quat">Cube (Quaternions)</a></li>
+  <li><a href="https://susanw1.github.io/JS-toys/World-quat">Cube World (Quaternions)</a></li>
 </ul>
