@@ -6,7 +6,7 @@ import { Viewer } from "./render/viewer.js";
 import {
     quatFromAxisAngle,
     quatMultiply,
-    quatNormalize,
+    quatNormalizePositive,
     quatRotateVector
 } from "./math/quat.js";
 
@@ -28,7 +28,8 @@ export const TUNE = {
     rollStabilize: 2.0,           // rad/s roll back toward world-up (0 = off)
     leadTime: 0.20,               // s: predictive lead on camera
     mouseSensitivity: 0.0025,     // rad / px (mouse)
-    touchSensitivity: 0.004       // rad / px (touch)
+    touchSensitivity: 0.004,       // rad / px (touch)
+    eps: 1e-9
 };
 
 // ---------- Mesh ----------
@@ -175,16 +176,12 @@ export function createScene(canvas) {
             const right = quatRotateVector(q, [1, 0, 0]);
             const qPitchRight = quatFromAxisAngle(right, pitch);
             q = quatMultiply(qPitchRight, q);
-            camera.rotation = quatNormalize(q);
+            camera.rotation = quatNormalizePositive(q);
         } else {
             // Free-fly: local yaw then local pitch (right-multiply)
             let q = quatMultiply(camera.rotation, quatFromAxisAngle([0, 1, 0], yaw));
             q = quatMultiply(q, quatFromAxisAngle([1, 0, 0], pitch));
-            camera.rotation = quatNormalize(q);
-        }
-
-        if (camera.rotation[0] < 0) {
-            camera.rotation = camera.rotation.map(v => -v);
+            camera.rotation = quatNormalizePositive(q);
         }
     }
 
@@ -245,10 +242,7 @@ export function createScene(canvas) {
         }
 
         if (dq) {
-            cube.rotation = quatNormalize(quatMultiply(cube.rotation, dq));
-            if (cube.rotation[0] < 0) {
-                cube.rotation = cube.rotation.map(v => -v);
-            }
+            cube.rotation = quatNormalizePositive(quatMultiply(cube.rotation, dq));
         }
 
         const step = TUNE.cubeMoveRate * dt;

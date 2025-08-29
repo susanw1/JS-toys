@@ -7,6 +7,15 @@ export function quatNormalize(q) {
     return q.map(v => v / len);
 }
 
+// Normalize, and ensure we're in the positive real hemisphere
+export function quatNormalizePositive(q) {
+    const len = Math.hypot(...q) * (q[0] < 0 ? -1 : 1);
+    if (Math.abs(1 - len) < 1e-12) {
+        return q;
+    }
+    return len == 0 ? quatIdentity() : q.map(v => v / len);
+}
+
 export function quatMultiply(a, b) {
     const [aw, ax, ay, az] = a;
     const [bw, bx, by, bz] = b;

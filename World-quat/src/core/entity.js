@@ -1,7 +1,7 @@
 import {
     quatIdentity,
     quatMultiply,
-    quatNormalize,
+    quatNormalizePositive,
     quatFromAxisAngle,
     quatRotateVector
 } from "../math/quat.js";
@@ -23,19 +23,13 @@ export class Entity {
     // rotate around local axis
     rotateLocal(axisLocal, angle) {
         const dq = quatFromAxisAngle(axisLocal, angle);
-        this.rotation = quatNormalize(quatMultiply(this.rotation, dq));
-        if (this.rotation[0] < 0) {
-            this.rotation = this.rotation.map(v => -v);
-        }
+        this.rotation = quatNormalizePositive(quatMultiply(this.rotation, dq));
     }
 
     // rotate around world axis
     rotateWorld(axisWorld, angle) {
         const dq = quatFromAxisAngle(axisWorld, angle);
-        this.rotation = quatNormalize(quatMultiply(dq, this.rotation));
-        if (this.rotation[0] < 0) {
-            this.rotation = this.rotation.map(v => -v);
-        }
+        this.rotation = quatNormalizePositive(quatMultiply(dq, this.rotation));
     }
 
     forward() {

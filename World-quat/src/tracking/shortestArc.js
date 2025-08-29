@@ -45,5 +45,5 @@ export function shortestArcStep(currentQuat, fromDirLocal, toDirWorld, maxStepRa
         }
     }
 
-    return quatNormalize(q);
+    return quatNormalizePositive(q);
 }
