@@ -1,5 +1,5 @@
 import { vcross, vlen, vdot, vnorm, clampUnit } from "../math/vec3.js";
-import { quatFromAxisAngle, quatMultiply, quatNormalize, quatRotateVector } from "../math/quat.js";
+import { quatFromAxisAngle, quatMultiply, quatNormalizePositive, quatRotateVector } from "../math/quat.js";
 
 export function shortestArcStep(currentQuat, fromDirLocal, toDirWorld, maxStepRad, worldUp = [0, 1, 0], rollRate = 0) {
     const fCur = quatRotateVector(currentQuat, fromDirLocal);

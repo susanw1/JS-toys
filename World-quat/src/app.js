@@ -1,7 +1,10 @@
 // src/app.js
-import { Entity } from "./core/entity.js";
+import { World } from "./world/world.js";
 import { Camera } from "./core/camera.js";
 import { Viewer } from "./render/viewer.js";
+import { WireframeRenderer } from "./render/wireframeRenderer.js";
+import { Cube } from "./entities/cube.js";
+import { MeshShape } from "./shapes/mesh.js";
 
 import {
     quatFromAxisAngle,
@@ -20,12 +23,8 @@ import { shortestArcStep } from "./tracking/shortestArc.js";
 
 // ---------- Tunables ----------
 export const TUNE = {
-    cubeTurnRate: 1.5,            // rad/s for R, P, Y
-    cubeMoveRate: 1.0,            // units/s for arrows + PgUp/Dn
     camMoveRate: 1.0,             // units/s for WASD + QE
     zoomRate: 250,                // pixels/s for Z
-    maxTrackingTurnRate: 0.8,     // rad/s toward target (overall)
-    rollStabilize: 2.0,           // rad/s roll back toward world-up (0 = off)
     leadTime: 0.20,               // s: predictive lead on camera
     mouseSensitivity: 0.0025,     // rad / px (mouse)
     touchSensitivity: 0.004,       // rad / px (touch)
@@ -33,18 +32,12 @@ export const TUNE = {
 };
 
 // ---------- Mesh ----------
-export const CUBE_MESH = {
-    vertices: [
-        [-1, -0.75, -1.5], [-1, -0.75,  1.5], [-1,  0.75,  1.5], [-1,  0.75, -1.5],
-        [ 1, -0.75, -1.5], [ 1, -0.75,  1.5], [ 1,  0.75,  1.5], [ 1,  0.75, -1.5]
-    ],
-    edges: [
-        [0, 1, 2, 3, 0, 4, 5, 6, 7, 4],
-        [1, 5],
-        [6, 2],
-        [3, 7]
-    ]
-};
+const CUBE_VERTS = [
+    [-1, -0.75, -1.5], [-1, -0.75,  1.5], [-1,  0.75,  1.5], [-1,  0.75, -1.5],
+    [ 1, -0.75, -1.5], [ 1, -0.75,  1.5], [ 1,  0.75,  1.5], [ 1,  0.75, -1.5]
+];
+const CUBE_EDGES = [[0,1,2,3,0,4,5,6,7,4], [1,5], [6,2], [3,7]];
+
 
 // ---------- Input maps ----------
 const NAV_KEYS = new Set([
@@ -73,9 +66,16 @@ const VIEW_VECTORS = {
 // ---------- App factory ----------
 export function createScene(canvas) {
     // Scene objects
-    const viewer = new Viewer(canvas, { drawGrid: true });
-    const cube = new Entity({ position: [0, 0, 5], mesh: CUBE_MESH });
+    const world = new World();
+
+    const cubeShape = new MeshShape(CUBE_VERTS, CUBE_EDGES);
+    const cube = new Cube({ shape: cubeShape, position: [0, 0, 5] });
+    world.add(cube);
+
     const camera = new Camera({ position: [0, 0, 0], zoom: 600, near: 0.01 });
+
+    const wireRenderer = new WireframeRenderer(canvas.getContext("2d"));
+    const viewer = new Viewer(canvas, { renderer: wireRenderer, drawGrid: true });
 
     // Runtime state
     let fpsMode = true;                  // true = FPS world-up yaw, false = free-fly
@@ -228,24 +228,27 @@ export function createScene(canvas) {
         let dq = null;
         const sign = shiftHeld ? -1 : 1;
 
+        const turnRate = cube.params.turnRate;
+        const moveRate = cube.params.moveRate;
+
         if (held.has("KeyR")) {
             dq = (dq ?? [1, 0, 0, 0]);
-            dq = quatMultiply(dq, quatFromAxisAngle([0, 0, 1], sign * TUNE.cubeTurnRate * dt));
+            dq = quatMultiply(dq, quatFromAxisAngle([0, 0, 1], sign * turnRate * dt));
         }
         if (held.has("KeyP")) {
             dq = (dq ?? [1, 0, 0, 0]);
-            dq = quatMultiply(dq, quatFromAxisAngle([1, 0, 0], sign * TUNE.cubeTurnRate * dt));
+            dq = quatMultiply(dq, quatFromAxisAngle([1, 0, 0], sign * turnRate * dt));
         }
         if (held.has("KeyY")) {
             dq = (dq ?? [1, 0, 0, 0]);
-            dq = quatMultiply(dq, quatFromAxisAngle([0, 1, 0], sign * TUNE.cubeTurnRate * dt));
+            dq = quatMultiply(dq, quatFromAxisAngle([0, 1, 0], sign * turnRate * dt));
         }
 
         if (dq) {
             cube.rotation = quatNormalizePositive(quatMultiply(cube.rotation, dq));
         }
 
-        const step = TUNE.cubeMoveRate * dt;
+        const step = moveRate * dt;
         const vLocal = localMoveFromHeld(held, LOCAL_MOVE_VECTORS, step);
         if (vLocal[0] || vLocal[1] || vLocal[2]) {
             const world = quatRotateVector(cube.rotation, vLocal);
@@ -275,16 +278,20 @@ export function createScene(canvas) {
             return;
         }
 
-        const target = vadd(camera.position, vscale(camVel, TUNE.leadTime));
+        const trackRate   = cube.params.trackTurnRate ?? 0.8;
+        const rollRate    = cube.params.rollStabilize ?? 2.0;
+        const leadSeconds = cube.params.leadTime ?? TUNE.leadTime ?? 0.20;
+
+        const target = vadd(camera.position, vscale(camVel, leadSeconds));
         const toCam = vsub(target, cube.position);
 
         cube.rotation = shortestArcStep(
             cube.rotation,
-            [0, 0, 1],                        // cube local forward
-            toCam,                             // desired world forward
-            TUNE.maxTrackingTurnRate * dt,     // limited step
-            [0, 1, 0],                         // world up
-            TUNE.rollStabilize * dt            // roll correction per frame
+            [0, 0, 1],                  // cube local forward
+            toCam,                      // desired world forward
+            trackRate * dt,             // limited step
+            [0, 1, 0],                  // world up
+            rollRate * dt               // roll correction per frame
         );
     }
 
