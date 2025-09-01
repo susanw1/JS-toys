@@ -46,21 +46,21 @@ const NAV_KEYS = new Set([
 ]);
 
 const LOCAL_MOVE_VECTORS = {
-    ArrowUp:    (s) => [[0], [0], [ s]],
-    ArrowDown:  (s) => [[0], [0], [-s]],
-    ArrowLeft:  (s) => [[-s], [0], [0]],
-    ArrowRight: (s) => [[ s], [0], [0]],
-    PageUp:     (s) => [[0], [-s], [0]],
-    PageDown:   (s) => [[0], [ s], [0]]
+    ArrowUp:    [ 0,  0,  1],
+    ArrowDown:  [ 0,  0, -1],
+    ArrowLeft:  [-1,  0,  0],
+    ArrowRight: [ 1,  0,  0],
+    PageUp:     [ 0, -1,  0],
+    PageDown:   [ 0,  1,  0],
 };
 
 const VIEW_VECTORS = {
-    KeyW:  (s) => [[0], [0], [ s]],
-    KeyS:  (s) => [[0], [0], [-s]],
-    KeyA:  (s) => [[-s], [0], [0]],
-    KeyD:  (s) => [[ s], [0], [0]],
-    KeyQ:  (s) => [[0], [ s], [0]],
-    KeyE:  (s) => [[0], [-s], [0]]
+    KeyW: [ 0,  0,  1],
+    KeyS: [ 0,  0, -1],
+    KeyA: [-1,  0,  0],
+    KeyD: [ 1,  0,  0],
+    KeyQ: [ 0,  1,  0],
+    KeyE: [ 0, -1,  0],
 };
 
 // ---------- App factory ----------
@@ -102,12 +102,11 @@ export function createScene(canvas) {
         let z = 0;
 
         for (const code of heldSet) {
-            const gen = vectorMap[code];
-            if (gen) {
-                const vv = gen(step);
-                x += vv[0][0];
-                y += vv[1][0];
-                z += vv[2][0];
+            const v = vectorMap[code];
+            if (v) {
+                x += v[0] * step;
+                y += v[1] * step;
+                z += v[2] * step;
             }
         }
         return [x, y, z];
@@ -246,6 +245,9 @@ export function createScene(canvas) {
 
         if (dq) {
             cube.rotation = quatNormalizePositive(quatMultiply(cube.rotation, dq));
+            if (!Number.isFinite(cube.rotation[0] + cube.rotation[1] + cube.rotation[2] + cube.rotation[3])) {
+                console.warn('Bad quaternion', cube.rotation);
+            }
         }
 
         const step = moveRate * dt;

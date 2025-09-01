@@ -11,13 +11,16 @@ export class WireframeRenderer {
         const h = ctx.canvas.height;
 
         ctx.clearRect(0, 0, w, h);
+
+        const fWorldToCamera = camera.makeWorldToCamera();
+
         if (withGrid) {
-            drawGrid(ctx, camera);
+            drawGrid(ctx, camera, fWorldToCamera);
         }
 
         for (const e of entities) {
             if (!e.shape) { continue; }
-            drawMesh(ctx, camera, e);
+            drawMesh(ctx, camera, e, fWorldToCamera);
         }
 
         drawCrosshair(ctx);
@@ -25,14 +28,6 @@ export class WireframeRenderer {
 }
 
 // — helpers
-
-function worldToCamera(p, cam) {
-    const dx = p[0] - cam.position[0];
-    const dy = p[1] - cam.position[1];
-    const dz = p[2] - cam.position[2];
-    const qInv = quatConjugate(cam.rotation);
-    return quatRotateVector(qInv, [dx, dy, dz]);
-}
 
 function project([xc, yc, zc], cam, w, h) {
     const safeZ = Math.max(zc, cam.near);
@@ -42,86 +37,74 @@ function project([xc, yc, zc], cam, w, h) {
     ];
 }
 
-function drawMesh(ctx, cam, entity) {
+function drawMesh(ctx, cam, entity, fWorldToCamera) {
     const { vertices, edges } = entity.shape;
     const w = ctx.canvas.width;
     const h = ctx.canvas.height;
 
-    const vertsCam = vertices.map(([lx, ly, lz]) => {
-        const sx = lx * entity.scale[0];
-        const sy = ly * entity.scale[1];
-        const sz = lz * entity.scale[2];
-        const pw = entity.modelToWorld([sx, sy, sz]);   // local -> world
-        return worldToCamera(pw, cam);                  // world -> camera
-    });
+    // Local -> World -> Camera
+    const vertsCam = vertices.map(vLocal =>
+        fWorldToCamera(entity.modelToWorld(vLocal)));
 
     ctx.beginPath();
     for (const list of edges) {
-        let started = false;
-        for (const i of list) {
-            const vc = vertsCam[i];
-            if (vc[2] <= cam.near) {
-                started = false;
-                continue;
-            }
-            const px = (vc[0] / vc[2]) * cam.zoom + w * 0.5;
-            const py = (vc[1] / vc[2]) * cam.zoom + h * 0.5;
-            if (!started) {
-                ctx.moveTo(px, py);
-                started = true;
-            } else {
-                ctx.lineTo(px, py);
+        // draw as segments with near-plane clipping
+        for (let i = 1; i < list.length; i++) {
+            const a = vertsCam[list[i - 1]];
+            const b = vertsCam[list[i]];
+            const seg = clipSegmentToNear(a, b, cam.near);
+            if (seg) {
+                const a2d = project(seg[0], cam, w, h);
+                const b2d = project(seg[1], cam, w, h);
+                ctx.moveTo(a2d[0], a2d[1]);
+                ctx.lineTo(b2d[0], b2d[1]);
             }
         }
     }
     ctx.stroke();
 }
 
-function drawGrid(ctx, cam, size = 40, step = 2) {
+function drawGrid(ctx, cam, fWorldToCamera, size = 40, step = 2) {
     ctx.save();
     ctx.globalAlpha = 0.5;
     ctx.strokeStyle = "#789";
     ctx.beginPath();
 
     for (let x = -size; x <= size; x += step) {
-        drawSegmentWorld(ctx, cam, [x, 0, -size], [x, 0, size]);
+        drawSegmentWorld(ctx, cam, fWorldToCamera, [x, 0, -size], [x, 0, size]);
     }
     for (let z = -size; z <= size; z += step) {
-        drawSegmentWorld(ctx, cam, [-size, 0, z], [size, 0, z]);
+        drawSegmentWorld(ctx, cam, fWorldToCamera, [-size, 0, z], [size, 0, z]);
     }
 
     ctx.stroke();
     ctx.restore();
 }
 
-function drawSegmentWorld(ctx, cam, a, b) {
-    const ac = worldToCamera(a, cam);
-    const bc = worldToCamera(b, cam);
-    const near = cam.near;
-
-    const z1 = ac[2], z2 = bc[2];
-    const in1 = z1 >= near, in2 = z2 >= near;
-
-    if (!in1 && !in2) { return; }
-    let p1 = ac, p2 = bc;
-
-    if (in1 !== in2) {
-        const t = (near - z1) / (z2 - z1);
-        const xi = ac[0] + t * (bc[0] - ac[0]);
-        const yi = ac[1] + t * (bc[1] - ac[1]);
-        const zi = near;
-        if (in1) {
-            p2 = [xi, yi, zi];
-        } else {
-            p1 = [xi, yi, zi];
-        }
-    }
+function drawSegmentWorld(ctx, cam, fWorldToCamera, a, b) {
+    const ac = fWorldToCamera(a, cam);
+    const bc = fWorldToCamera(b, cam);
+    const seg = clipSegmentToNear(ac, bc, cam.near);
+    if (!seg) return;
 
     const [w, h] = [ctx.canvas.width, ctx.canvas.height];
-    const a2d = project(p1, cam, w, h);
-    const b2d = project(p2, cam, w, h);
+    const a2d = project(seg[0], cam, w, h);
+    const b2d = project(seg[1], cam, w, h);
     ctx.moveTo(a2d[0], a2d[1]);
     ctx.lineTo(b2d[0], b2d[1]);
+}
+
+function clipSegmentToNear(a, b, near) {
+    const z1 = a[2], z2 = b[2];
+    const in1 = z1 >= near, in2 = z2 >= near;
+    if (!in1 && !in2) return null;
+    if (in1 && in2) return [a, b];
+
+    const t = (near - z1) / (z2 - z1);
+    const xi = a[0] + t * (b[0] - a[0]);
+    const yi = a[1] + t * (b[1] - a[1]);
+    const zi = near;
+    return in1 ? [a, [xi, yi, zi]] : [[xi, yi, zi], b];
 }
 
 function drawCrosshair(ctx) {

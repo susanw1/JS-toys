@@ -1,11 +1,19 @@
 import { Entity } from "./entity.js";
 import { quatConjugate, quatRotateVector } from "../math/quat.js";
+import { vsub } from "../math/vec3.js";
 
-export class Camera {
+export class Camera extends Entity {
     constructor(opts = {}) {
-        this.position = opts.position ? opts.position.slice() : [0, 0, 0];
-        this.rotation = opts.rotation ? opts.rotation.slice() : [1, 0, 0, 0];
+        super(opts);
         this.zoom = opts.zoom ?? 600;
         this.near = opts.near ?? 0.01;
+    }
+
+    makeWorldToCamera() {
+        return (p) => {
+            const qInv = quatConjugate(this.rotation);
+            const d = vsub(p, this.position);
+            return quatRotateVector(qInv, d);
+        };
     }
 }

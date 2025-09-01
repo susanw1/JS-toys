@@ -11,7 +11,6 @@ export class Entity {
     constructor(opts = {}) {
         this.position = opts.position ? opts.position.slice() : [0, 0, 0];
         this.rotation = opts.rotation ? opts.rotation.slice() : [1, 0, 0, 0]; // quat
-        this.scale = opts.scale ? opts.scale.slice() : [1, 1, 1];
 
         // Generic knobs & runtime state
         this.params = opts.params || {};
@@ -56,7 +55,6 @@ export class Entity {
                  r[1] + this.position[1],
                  r[2] + this.position[2] ];
     }
-
 
     // --- Mutating helpers ------------------------------------------------
 
