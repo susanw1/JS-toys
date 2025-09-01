@@ -6,28 +6,18 @@ import { WireframeRenderer } from "./render/wireframeRenderer.js";
 import { Cube } from "./entities/cube.js";
 import { MeshShape } from "./shapes/mesh.js";
 
-import {
-    quatFromAxisAngle,
-    quatMultiply,
-    quatNormalizePositive,
-    quatRotateVector
-} from "./math/quat.js";
-
-import {
-    vadd,
-    vsub,
-    vscale
-} from "./math/vec3.js";
-
-import { shortestArcStep } from "./tracking/shortestArc.js";
+import { InputManager } from "./input/inputManager.js";
+import { PlayerController } from "./controllers/playerController.js";
+import { CameraController } from "./controllers/cameraController.js";
+import { TrackingSystem } from "./systems/trackingSystem.js";
 
 // ---------- Tunables ----------
 export const TUNE = {
-    camMoveRate: 1.0,             // units/s for WASD + QE
-    zoomRate: 250,                // pixels/s for Z
-    leadTime: 0.20,               // s: predictive lead on camera
-    mouseSensitivity: 0.0025,     // rad / px (mouse)
-    touchSensitivity: 0.004,       // rad / px (touch)
+    camMoveRate: 1.0,
+    zoomRate: 250,
+    leadTime: 0.20,
+    mouseSensitivity: 0.0025,
+    touchSensitivity: 0.004,
     eps: 1e-9
 };
 
@@ -37,31 +27,6 @@ const CUBE_VERTS = [
     [ 1, -0.75, -1.5], [ 1, -0.75,  1.5], [ 1,  0.75,  1.5], [ 1,  0.75, -1.5]
 ];
 const CUBE_EDGES = [[0,1,2,3,0,4,5,6,7,4], [1,5], [6,2], [3,7]];
-
-
-// ---------- Input maps ----------
-const NAV_KEYS = new Set([
-    "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
-    "PageUp", "PageDown", "Home", "End", "Space"
-]);
-
-const LOCAL_MOVE_VECTORS = {
-    ArrowUp:    [ 0,  0,  1],
-    ArrowDown:  [ 0,  0, -1],
-    ArrowLeft:  [-1,  0,  0],
-    ArrowRight: [ 1,  0,  0],
-    PageUp:     [ 0, -1,  0],
-    PageDown:   [ 0,  1,  0],
-};
-
-const VIEW_VECTORS = {
-    KeyW: [ 0,  0,  1],
-    KeyS: [ 0,  0, -1],
-    KeyA: [-1,  0,  0],
-    KeyD: [ 1,  0,  0],
-    KeyQ: [ 0,  1,  0],
-    KeyE: [ 0, -1,  0],
-};
 
 // ---------- App factory ----------
 export function createScene(canvas) {
@@ -77,265 +42,38 @@ export function createScene(canvas) {
     const wireRenderer = new WireframeRenderer(canvas.getContext("2d"));
     const viewer = new Viewer(canvas, { renderer: wireRenderer, drawGrid: true });
 
-    // Runtime state
-    let fpsMode = true;                  // true = FPS world-up yaw, false = free-fly
-    let trackEnabled = false;            // Enter toggles
-    let controlsEnabled = false;         // set when pointer locked or touch captured
-    let activePointerId = null;          // for touch/stylus
-    let lastX = 0;
-    let lastY = 0;
-
-    const held = new Set();
-    let shiftHeld = false;
-
-    // Camera velocity estimation
-    let camVel = [0, 0, 0];
-    let prevCamPos = camera.position.slice();
+    // Input + controllers/systems
+    const input = new InputManager(canvas);
+    world.addController(new PlayerController(cube,  input, TUNE));
+    world.addController(new CameraController(camera, input, TUNE));
+    world.addSystem(new TrackingSystem(cube, camera, input, TUNE));
 
     // Timing
     let lastTime = performance.now();
 
-    // ===== Helpers =====
-    function localMoveFromHeld(heldSet, vectorMap, step) {
-        let x = 0;
-        let y = 0;
-        let z = 0;
-
-        for (const code of heldSet) {
-            const v = vectorMap[code];
-            if (v) {
-                x += v[0] * step;
-                y += v[1] * step;
-                z += v[2] * step;
-            }
-        }
-        return [x, y, z];
-    }
-
-    function updateCameraVelocity(dt) {
-        const delta = vsub(camera.position, prevCamPos);
-        camVel = vscale(delta, 1 / (dt || 1e-6));
-        prevCamPos = camera.position.slice();
-    }
-
-    // ===== Handlers (extracted) =====
-    function onCanvasClick() {
-        if (document.pointerLockElement !== canvas) {
-            canvas.requestPointerLock?.();
-        }
-    }
-
-    function onPointerLockChange() {
-        controlsEnabled = (document.pointerLockElement === canvas) || (activePointerId !== null);
-    }
-
-    function onPointerDown(e) {
-        if (e.pointerType === "mouse") {
-            return;
-        }
-
-        activePointerId = e.pointerId;
-        canvas.setPointerCapture(activePointerId);
-        controlsEnabled = true;
-        lastX = e.clientX;
-        lastY = e.clientY;
-
-        e.preventDefault();
-    }
-
-    function onPointerMove(e) {
-        if (!controlsEnabled) {
-            return;
-        }
-
-        const sens = (e.pointerType === "mouse") ? TUNE.mouseSensitivity : TUNE.touchSensitivity;
-        let dx = 0;
-        let dy = 0;
-
-        if (document.pointerLockElement === canvas && e.pointerType === "mouse") {
-            dx = e.movementX || 0;
-            dy = e.movementY || 0;
-        } else if (e.pointerId === activePointerId) {
-            dx = e.clientX - lastX;
-            dy = e.clientY - lastY;
-            lastX = e.clientX;
-            lastY = e.clientY;
-            e.preventDefault();
-        } else {
-            return;
-        }
-
-        const yaw = dx * sens;
-        const pitch = -dy * sens;
-
-        if (fpsMode) {
-            // World-up yaw, then pitch about camera-right (pre-multiply)
-            const qYawWorld = quatFromAxisAngle([0, 1, 0], yaw);
-            let q = quatMultiply(qYawWorld, camera.rotation);
-            const right = quatRotateVector(q, [1, 0, 0]);
-            const qPitchRight = quatFromAxisAngle(right, pitch);
-            q = quatMultiply(qPitchRight, q);
-            camera.rotation = quatNormalizePositive(q);
-        } else {
-            // Free-fly: local yaw then local pitch (right-multiply)
-            let q = quatMultiply(camera.rotation, quatFromAxisAngle([0, 1, 0], yaw));
-            q = quatMultiply(q, quatFromAxisAngle([1, 0, 0], pitch));
-            camera.rotation = quatNormalizePositive(q);
-        }
-    }
-
-    function onPointerUp(e) {
-        if (e.pointerId === activePointerId) {
-            canvas.releasePointerCapture(activePointerId);
-            activePointerId = null;
-            controlsEnabled = (document.pointerLockElement === canvas);
-        }
-    }
-
-    function onKeyDown(e) {
-        if (!controlsEnabled) {
-            return;
-        }
-
-        if (NAV_KEYS.has(e.code)) {
-            e.preventDefault();
-        }
-
-        held.add(e.code);
-
-        if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
-            shiftHeld = true;
-        }
-        if (e.code === "KeyF") {
-            fpsMode = !fpsMode;
-        }
-        if (e.code === "Enter") {
-            trackEnabled = !trackEnabled;
-        }
-    }
-
-    function onKeyUp(e) {
-        held.delete(e.code);
-
-        if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
-            shiftHeld = held.has("ShiftLeft") || held.has("ShiftRight");
-        }
-    }
-
-    // ===== Per-frame actions (unchanged behavior) =====
-    function moveCube(dt) {
-        let dq = null;
-        const sign = shiftHeld ? -1 : 1;
-
-        const turnRate = cube.params.turnRate;
-        const moveRate = cube.params.moveRate;
-
-        if (held.has("KeyR")) {
-            dq = (dq ?? [1, 0, 0, 0]);
-            dq = quatMultiply(dq, quatFromAxisAngle([0, 0, 1], sign * turnRate * dt));
-        }
-        if (held.has("KeyP")) {
-            dq = (dq ?? [1, 0, 0, 0]);
-            dq = quatMultiply(dq, quatFromAxisAngle([1, 0, 0], sign * turnRate * dt));
-        }
-        if (held.has("KeyY")) {
-            dq = (dq ?? [1, 0, 0, 0]);
-            dq = quatMultiply(dq, quatFromAxisAngle([0, 1, 0], sign * turnRate * dt));
-        }
-
-        if (dq) {
-            cube.rotation = quatNormalizePositive(quatMultiply(cube.rotation, dq));
-            if (!Number.isFinite(cube.rotation[0] + cube.rotation[1] + cube.rotation[2] + cube.rotation[3])) {
-                console.warn('Bad quaternion', cube.rotation);
-            }
-        }
-
-        const step = moveRate * dt;
-        const vLocal = localMoveFromHeld(held, LOCAL_MOVE_VECTORS, step);
-        if (vLocal[0] || vLocal[1] || vLocal[2]) {
-            const world = quatRotateVector(cube.rotation, vLocal);
-            cube.position = vadd(cube.position, world);
-        }
-    }
-
-    function controlView(dt) {
-        const step = TUNE.camMoveRate * dt;
-        const vLocal = localMoveFromHeld(held, VIEW_VECTORS, step);
-        if (vLocal[0] || vLocal[1] || vLocal[2]) {
-            const world = quatRotateVector(camera.rotation, vLocal);
-            camera.position = vadd(camera.position, world);
-        }
-
-        if (held.has("KeyZ")) {
-            const sign = shiftHeld ? -1 : 1;
-            camera.zoom += sign * TUNE.zoomRate * dt;
-            if (camera.zoom < 10) {
-                camera.zoom = 10;
-            }
-        }
-    }
-
-    function updateTracking(dt) {
-        if (!trackEnabled) {
-            return;
-        }
-
-        const trackRate   = cube.params.trackTurnRate ?? 0.8;
-        const rollRate    = cube.params.rollStabilize ?? 2.0;
-        const leadSeconds = cube.params.leadTime ?? TUNE.leadTime ?? 0.20;
-
-        const target = vadd(camera.position, vscale(camVel, leadSeconds));
-        const toCam = vsub(target, cube.position);
-
-        cube.rotation = shortestArcStep(
-            cube.rotation,
-            [0, 0, 1],                  // cube local forward
-            toCam,                      // desired world forward
-            trackRate * dt,             // limited step
-            [0, 1, 0],                  // world up
-            rollRate * dt               // roll correction per frame
-        );
-    }
-
-    // ===== Main loop =====
     function tick(now = performance.now()) {
         const dt = Math.min((now - lastTime) / 1000, 0.05);
         lastTime = now;
 
-        updateCameraVelocity(dt);
-        moveCube(dt);
-        controlView(dt);
-        updateTracking(dt);
-
+        world.step(dt);
         viewer.render({ camera, entities: [cube], withGrid: true });
+
+        input.endFrame();
         requestAnimationFrame(tick);
     }
 
-    // ===== Wire listeners =====
-    canvas.addEventListener("click", onCanvasClick);
-    document.addEventListener("pointerlockchange", onPointerLockChange);
-
-    canvas.addEventListener("pointerdown", onPointerDown, { passive: false });
-    canvas.addEventListener("pointermove", onPointerMove, { passive: false });
-    canvas.addEventListener("pointerup", onPointerUp, { passive: false });
-    canvas.addEventListener("pointercancel", onPointerUp);
-
-    document.addEventListener("keydown", onKeyDown, { passive: false });
-    document.addEventListener("keyup", onKeyUp, { passive: false });
-
-    // Boot
     requestAnimationFrame(tick);
 
-    // Small control surface
+    // Small control surface, wired to InputManager toggles
     return {
         viewer,
         cube,
         camera,
         state: {
-            get fpsMode() { return fpsMode; },
-            set fpsMode(v) { fpsMode = !!v; },
-            get trackEnabled() { return trackEnabled; },
-            set trackEnabled(v) { trackEnabled = !!v; }
+            get fpsMode() { return input.toggles.fpsMode; },
+            set fpsMode(v) { input.toggles.fpsMode = !!v; },
+            get trackEnabled() { return input.toggles.trackEnabled; },
+            set trackEnabled(v) { input.toggles.trackEnabled = !!v; }
         },
         TUNE
     };
