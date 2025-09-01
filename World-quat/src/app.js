@@ -70,8 +70,10 @@ export function createScene(canvas) {
     cube.fitAsset(headCam, "head");
 
     const gun = new WeaponAsset({ fireRate: 5, magSize: 6 });
-    // Reuse your instance method; you already converted it:
-    // gun.mesh = cube.shape.scaledMesh(0.3, 0.3, 0.6);
+    gun.local.pos = [0.0, -0.12, 0.25];
+    gun.mesh = cube.shape.scaledMesh(0.25, 0.25, 0.60);
+    gun.spinRate = 0.8;
+    gun.spinAxis = [0, 1, 0]; // spin around local up instead
     cube.fitAsset(gun, "handR");
 
     // Systems for these assets

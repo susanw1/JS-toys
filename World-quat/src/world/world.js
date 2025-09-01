@@ -33,11 +33,22 @@ export class World {
 
     update(dt) {
         for (const e of this.entities) {
-            if (e.alive && typeof e.update === "function") {
+            if (!e.alive) {
+                continue;
+            }
+            if (typeof e.update === "function") {
                 e.update(dt, this);
             }
+            // step fitted assets
+            const mounts = e.mounts || {};
+            for (const id in mounts) {
+                const a = mounts[id].asset;
+                if (a && typeof a.update === "function") {
+                    a.update(dt, this);
+                }
+            }
         }
-    }
+}
 
     step(dt, input = null) {
         if (this.actionMap && input) {

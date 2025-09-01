@@ -81,19 +81,18 @@ export class ActionMap {
                 continue;
             }
             if (action.type === "press"   && phase !== "press")   { continue; }
-            if (action.type === "hold"    && phase !== "hold")    { continue; }
+            if (action.type === "hold"    && !(phase === "hold" || phase === "release")) { continue; }
             if (action.type === "release" && phase !== "release") { continue; }
 
             let toggled;
             if (action.type === "toggle") {
                 if (phase !== "press") {
-                    continue; // only on down-edge
+                    continue;
                 }
                 const cur = !!this.toggleState.get(id);
                 toggled = !cur;
                 this.toggleState.set(id, toggled);
             }
-
             action.invoke?.({ key, input, phase, toggled });
         }
     }

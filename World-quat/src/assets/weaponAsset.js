@@ -1,13 +1,18 @@
 import { Asset } from "./asset.js";
+import { quatFromAxisAngle, quatMultiply, quatNormalizePositive } from "../math/quat.js";
 
 export class WeaponAsset extends Asset {
     constructor(opts = {}) {
         super({ kind: "weapon", ...opts });
-        this.fireRate = (opts.fireRate ?? 4); // shots/sec
+        this.fireRate = (opts.fireRate ?? 4);    // shots/sec
         this.magSize  = (opts.magSize  ?? 12);
         this.ammo     = (opts.ammo     ?? this.magSize);
         this.cooldown = 0;
         this.triggerHeld = false;
+
+        // NEW: simple idle spin (rad/s) and axis in local space
+        this.spinRate = (opts.spinRate ?? 1.2);
+        this.spinAxis = (opts.spinAxis || [0, 0, 1]);   // roll around forward by default
     }
 
     getCapabilities() {
@@ -37,6 +42,15 @@ export class WeaponAsset extends Asset {
         if (this.ammo < this.magSize) {
             this.ammo = this.magSize; // instant for demo
             console.log(`[weapon ${this.id}] reloaded`);
+        }
+    }
+
+    // give it a gentle spin every frame
+    update(dt, world) {
+        const step = this.spinRate * dt;
+        if (step !== 0) {
+            const dq = quatFromAxisAngle(this.spinAxis, step);
+            this.local.rot = quatNormalizePositive(quatMultiply(this.local.rot, dq));
         }
     }
 }
