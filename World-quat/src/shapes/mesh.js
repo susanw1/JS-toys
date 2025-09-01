@@ -5,12 +5,14 @@ export class MeshShape {
         this.edges = edges.map(list => list.slice());
         this.bounds = computeBounds(this.vertices);
     }
+
+    scaledMesh(sx, sy, sz) {
+        const verts = this.vertices.map(([x,y,z]) => [x * sx, y * sy, z * sz]);
+        return new MeshShape(verts, this.edges);
+    }
+
 }
 
-export function scaledMesh(shape, sx, sy, sz) {
-    const verts = shape.vertices.map(([x,y,z]) => [x * sx, y * sy, z * sz]);
-    return new MeshShape(verts, shape.edges);
-}
 
 function computeBounds(verts) {
     let minX = Infinity, minY = Infinity, minZ = Infinity;

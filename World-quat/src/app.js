@@ -4,12 +4,16 @@ import { Camera } from "./core/camera.js";
 import { Viewer } from "./render/viewer.js";
 import { WireframeRenderer } from "./render/wireframeRenderer.js";
 import { Cube } from "./entities/cube.js";
+import { Asset } from "./assets/asset.js";
 import { MeshShape } from "./shapes/mesh.js";
 
+import { ActionMap } from "./input/actionMap.js";
 import { InputManager } from "./input/inputManager.js";
 import { PlayerController } from "./controllers/playerController.js";
 import { CameraController } from "./controllers/cameraController.js";
 import { TrackingSystem } from "./systems/trackingSystem.js";
+
+import { makeTransform } from "./math/transform.js";
 
 // ---------- Tunables ----------
 export const TUNE = {
@@ -35,6 +39,11 @@ export function createScene(canvas) {
 
     const cubeShape = new MeshShape(CUBE_VERTS, CUBE_EDGES);
     const cube = new Cube({ shape: cubeShape, position: [0, 0, 5] });
+    cube.addMount({ id: "top", category: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
+    const dummy = new Asset({ kind: "dummy", mesh: cube.shape.scaledMesh(0.5, 1, 0.5) }); // reuse cube mesh to see it draw
+    dummy.local.pos = [0, 0.5, 0]; // offset above
+    dummy.local.rot = [0.5, 1, 0, 0]; // offset above
+    cube.fitAsset(dummy, "top");
     world.add(cube);
 
     const camera = new Camera({ position: [0, 0, 0], zoom: 600, near: 0.01 });
@@ -43,10 +52,15 @@ export function createScene(canvas) {
     const viewer = new Viewer(canvas, { renderer: wireRenderer, drawGrid: true });
 
     // Input + controllers/systems
-    const input = new InputManager(canvas);
-    world.addController(new PlayerController(cube,  input, TUNE));
-    world.addController(new CameraController(camera, input, TUNE));
-    world.addSystem(new TrackingSystem(cube, camera, input, TUNE));
+    const inputMgr = new InputManager(canvas);
+    const actionMap = new ActionMap();
+    world.actionMap = actionMap;
+
+   // (optional) register any pre-fitted assets here later
+
+    world.addController(new PlayerController(cube,  inputMgr, TUNE));
+    world.addController(new CameraController(camera, inputMgr, TUNE));
+    world.addSystem(new TrackingSystem(cube, camera, inputMgr, TUNE));
 
     // Timing
     let lastTime = performance.now();
@@ -55,10 +69,10 @@ export function createScene(canvas) {
         const dt = Math.min((now - lastTime) / 1000, 0.05);
         lastTime = now;
 
-        world.step(dt);
+        world.step(dt, inputMgr);
         viewer.render({ camera, entities: [cube], withGrid: true });
 
-        input.endFrame();
+        inputMgr.endFrame();
         requestAnimationFrame(tick);
     }
 
@@ -70,10 +84,10 @@ export function createScene(canvas) {
         cube,
         camera,
         state: {
-            get fpsMode() { return input.toggles.fpsMode; },
-            set fpsMode(v) { input.toggles.fpsMode = !!v; },
-            get trackEnabled() { return input.toggles.trackEnabled; },
-            set trackEnabled(v) { input.toggles.trackEnabled = !!v; }
+            get fpsMode() { return inputMgr.toggles.fpsMode; },
+            set fpsMode(v) { inputMgr.toggles.fpsMode = !!v; },
+            get trackEnabled() { return inputMgr.toggles.trackEnabled; },
+            set trackEnabled(v) { inputMgr.toggles.trackEnabled = !!v; }
         },
         TUNE
     };

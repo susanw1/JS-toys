@@ -6,8 +6,8 @@ const VIEW_VECTORS = {
     KeyS: [ 0,  0, -1],
     KeyA: [-1,  0,  0],
     KeyD: [ 1,  0,  0],
-    KeyQ: [ 0,  1,  0],
-    KeyE: [ 0, -1,  0],
+    KeyQ: [ 0, -1,  0],
+    KeyE: [ 0,  1,  0],
 };
 
 function localMoveFromHeld(held, map, step) {
@@ -42,12 +42,12 @@ export class CameraController {
             if (this.fpsMode) {
                 const qYawWorld = quatFromAxisAngle([0, 1, 0], yaw);
                 q = quatMultiply(qYawWorld, cam.rotation);
-                const right = quatRotateVector(q, [1, 0, 0]);
+                const right = quatRotateVector(q, [-1, 0, 0]);
                 const qPitchRight = quatFromAxisAngle(right, pitch);
                 q = quatMultiply(qPitchRight, q);
             } else {
                 q = quatMultiply(cam.rotation, quatFromAxisAngle([0, 1, 0], yaw));
-                q = quatMultiply(q, quatFromAxisAngle([1, 0, 0], pitch));
+                q = quatMultiply(q, quatFromAxisAngle([-1, 0, 0], pitch));
             }
             cam.rotation = quatNormalizePositive(q);
         }

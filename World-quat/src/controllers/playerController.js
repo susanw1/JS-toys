@@ -6,8 +6,8 @@ const LOCAL_MOVE_VECTORS = {
     ArrowDown:  [ 0,  0, -1],
     ArrowLeft:  [-1,  0,  0],
     ArrowRight: [ 1,  0,  0],
-    PageUp:     [ 0, -1,  0],
-    PageDown:   [ 0,  1,  0],
+    PageUp:     [ 0,  1,  0],
+    PageDown:   [ 0, -1,  0],
 };
 
 function localMoveFromHeld(held, map, step) {

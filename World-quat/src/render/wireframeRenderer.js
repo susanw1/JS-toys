@@ -1,4 +1,6 @@
-import { quatConjugate, quatRotateVector } from "../math/quat.js";
+import {
+    transformPoint
+} from "../math/transform.js";
 
 export class WireframeRenderer {
     constructor(ctx) {
@@ -12,6 +14,7 @@ export class WireframeRenderer {
 
         ctx.clearRect(0, 0, w, h);
 
+        // Hoist camera inverse per-frame
         const fWorldToCamera = camera.makeWorldToCamera();
 
         if (withGrid) {
@@ -19,32 +22,43 @@ export class WireframeRenderer {
         }
 
         for (const e of entities) {
-            if (!e.shape) { continue; }
-            drawMesh(ctx, camera, e, fWorldToCamera);
+            if (e.shape) {
+                drawMeshAtEntity(ctx, camera, e, fWorldToCamera);
+            }
+            // NEW: draw fitted assets
+            if (e.mounts) {
+                for (const mountId in e.mounts) {
+                    const m = e.mounts[mountId];
+                    const a = m.asset;
+                    if (a && a.mesh) {
+                        drawMeshAtTransform(ctx, camera, a.mesh, fWorldToCamera, a.worldTransform());
+                    }
+                }
+            }
         }
 
         drawCrosshair(ctx);
     }
 }
 
-// — helpers
-
+// helpers
 function project([xc, yc, zc], cam, w, h) {
     const safeZ = Math.max(zc, cam.near);
-    return [
-        (xc / safeZ) * cam.zoom + w * 0.5,
-        (yc / safeZ) * cam.zoom + h * 0.5
-    ];
+    return [(xc / safeZ) * cam.zoom + w * 0.5, h * 0.5 - (yc / safeZ) * cam.zoom];
 }
 
-function drawMesh(ctx, cam, entity, fWorldToCamera) {
-    const { vertices, edges } = entity.shape;
+
+function drawMeshAtEntity(ctx, cam, entity, fWorldToCamera) {
+    drawMeshAtTransform(ctx, cam, entity.shape, fWorldToCamera, { pos: entity.position, rot: entity.rotation });
+}
+
+function drawMeshAtTransform(ctx, cam, mesh, fWorldToCamera, T) {
+    const { vertices, edges } = mesh;
     const w = ctx.canvas.width;
     const h = ctx.canvas.height;
 
     // Local -> World -> Camera
-    const vertsCam = vertices.map(vLocal =>
-        fWorldToCamera(entity.modelToWorld(vLocal)));
+    const vertsCam = vertices.map(vLocal => fWorldToCamera(transformPoint(T, vLocal)));
 
     ctx.beginPath();
     for (const list of edges) {
@@ -82,8 +96,8 @@ function drawGrid(ctx, cam, fWorldToCamera, size = 40, step = 2) {
 }
 
 function drawSegmentWorld(ctx, cam, fWorldToCamera, a, b) {
-    const ac = fWorldToCamera(a, cam);
-    const bc = fWorldToCamera(b, cam);
+    const ac = fWorldToCamera(a);
+    const bc = fWorldToCamera(b);
     const seg = clipSegmentToNear(ac, bc, cam.near);
     if (!seg) return;
 

@@ -9,10 +9,12 @@ export class Camera extends Entity {
         this.near = opts.near ?? 0.01;
     }
 
+    // Capture qInv and position at call-time; per-frame callers should call once.
     makeWorldToCamera() {
+        const qInv = quatConjugate(this.rotation);
+        const camPos = this.position.slice();
         return (p) => {
-            const qInv = quatConjugate(this.rotation);
-            const d = vsub(p, this.position);
+            const d = vsub(p, camPos);
             return quatRotateVector(qInv, d);
         };
     }
