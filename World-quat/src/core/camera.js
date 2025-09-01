@@ -9,7 +9,8 @@ export class Camera extends Entity {
         this.near = opts.near ?? 0.01;
     }
 
-    // Capture qInv and position at call-time; per-frame callers should call once.
+    // Create a closure that captures qInv and camPos at call time.
+    // Call once per frame from the renderer.
     makeWorldToCamera() {
         const qInv = quatConjugate(this.rotation);
         const camPos = this.position.slice();

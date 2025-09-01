@@ -1,6 +1,4 @@
-import {
-    transformPoint
-} from "../math/transform.js";
+import { transformPoint } from "../math/transform.js";
 
 export class WireframeRenderer {
     constructor(ctx) {
@@ -14,7 +12,6 @@ export class WireframeRenderer {
 
         ctx.clearRect(0, 0, w, h);
 
-        // Hoist camera inverse per-frame
         const fWorldToCamera = camera.makeWorldToCamera();
 
         if (withGrid) {
@@ -23,16 +20,13 @@ export class WireframeRenderer {
 
         for (const e of entities) {
             if (e.shape) {
-                drawMeshAtEntity(ctx, camera, e, fWorldToCamera);
+                drawMeshAtTransform(ctx, camera, e.shape, fWorldToCamera, { pos: e.position, rot: e.rotation });
             }
-            // NEW: draw fitted assets
-            if (e.mounts) {
-                for (const mountId in e.mounts) {
-                    const m = e.mounts[mountId];
-                    const a = m.asset;
-                    if (a && a.mesh) {
-                        drawMeshAtTransform(ctx, camera, a.mesh, fWorldToCamera, a.worldTransform());
-                    }
+            // draw fitted assets (if any)
+            for (const mountId in (e.mounts || {})) {
+                const a = e.mounts[mountId].asset;
+                if (a && a.mesh) {
+                    drawMeshAtTransform(ctx, camera, a.mesh, fWorldToCamera, a.worldTransform());
                 }
             }
         }
@@ -41,15 +35,14 @@ export class WireframeRenderer {
     }
 }
 
-// helpers
+// — helpers
+
 function project([xc, yc, zc], cam, w, h) {
     const safeZ = Math.max(zc, cam.near);
-    return [(xc / safeZ) * cam.zoom + w * 0.5, h * 0.5 - (yc / safeZ) * cam.zoom];
-}
-
-
-function drawMeshAtEntity(ctx, cam, entity, fWorldToCamera) {
-    drawMeshAtTransform(ctx, cam, entity.shape, fWorldToCamera, { pos: entity.position, rot: entity.rotation });
+    return [
+        (xc / safeZ) * cam.zoom + w * 0.5,
+        h * 0.5 - (yc / safeZ) * cam.zoom
+    ];
 }
 
 function drawMeshAtTransform(ctx, cam, mesh, fWorldToCamera, T) {
@@ -57,12 +50,12 @@ function drawMeshAtTransform(ctx, cam, mesh, fWorldToCamera, T) {
     const w = ctx.canvas.width;
     const h = ctx.canvas.height;
 
-    // Local -> World -> Camera
-    const vertsCam = vertices.map(vLocal => fWorldToCamera(transformPoint(T, vLocal)));
+    const vertsCam = vertices.map(vLocal =>
+        fWorldToCamera(transformPoint(T, vLocal))
+    );
 
     ctx.beginPath();
     for (const list of edges) {
-        // draw as segments with near-plane clipping
         for (let i = 1; i < list.length; i++) {
             const a = vertsCam[list[i - 1]];
             const b = vertsCam[list[i]];
@@ -96,10 +89,12 @@ function drawGrid(ctx, cam, fWorldToCamera, size = 40, step = 2) {
 }
 
 function drawSegmentWorld(ctx, cam, fWorldToCamera, a, b) {
-    const ac = fWorldToCamera(a);
-    const bc = fWorldToCamera(b);
+    const ac = fWorldToCamera(a, cam);
+    const bc = fWorldToCamera(b, cam);
     const seg = clipSegmentToNear(ac, bc, cam.near);
-    if (!seg) return;
+    if (!seg) {
+        return;
+    }
 
     const [w, h] = [ctx.canvas.width, ctx.canvas.height];
     const a2d = project(seg[0], cam, w, h);
@@ -111,8 +106,12 @@ function drawSegmentWorld(ctx, cam, fWorldToCamera, a, b) {
 function clipSegmentToNear(a, b, near) {
     const z1 = a[2], z2 = b[2];
     const in1 = z1 >= near, in2 = z2 >= near;
-    if (!in1 && !in2) return null;
-    if (in1 && in2) return [a, b];
+    if (!in1 && !in2) {
+        return null;
+    }
+    if (in1 && in2) {
+        return [a, b];
+    }
 
     const t = (near - z1) / (z2 - z1);
     const xi = a[0] + t * (b[0] - a[0]);

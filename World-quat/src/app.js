@@ -7,13 +7,17 @@ import { Cube } from "./entities/cube.js";
 import { Asset } from "./assets/asset.js";
 import { MeshShape } from "./shapes/mesh.js";
 
-import { ActionMap } from "./input/actionMap.js";
 import { InputManager } from "./input/inputManager.js";
 import { PlayerController } from "./controllers/playerController.js";
 import { CameraController } from "./controllers/cameraController.js";
 import { TrackingSystem } from "./systems/trackingSystem.js";
 
 import { makeTransform } from "./math/transform.js";
+import { ActionMap } from "./input/actionMap.js";
+import { CameraAsset } from "./assets/cameraAsset.js";
+import { WeaponAsset } from "./assets/weaponAsset.js";
+import { CameraFollowSystem } from "./systems/cameraFollowSystem.js";
+import { WeaponsSystem } from "./systems/weaponsSystem.js";
 
 // ---------- Tunables ----------
 export const TUNE = {
@@ -53,8 +57,26 @@ export function createScene(canvas) {
 
     // Input + controllers/systems
     const inputMgr = new InputManager(canvas);
+    // Action map
     const actionMap = new ActionMap();
     world.actionMap = actionMap;
+
+    // Mounts on the cube
+    cube.addMount({ id: "head",  category: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
+    cube.addMount({ id: "handR", category: "hardpoint", transform: makeTransform([0.7, 0.0, 0.4]) });
+
+    // Fit assets
+    const headCam = new CameraAsset({ name: "HeadCam" });
+    cube.fitAsset(headCam, "head");
+
+    const gun = new WeaponAsset({ fireRate: 5, magSize: 6 });
+    // Reuse your instance method; you already converted it:
+    // gun.mesh = cube.shape.scaledMesh(0.3, 0.3, 0.6);
+    cube.fitAsset(gun, "handR");
+
+    // Systems for these assets
+    world.addSystem(new CameraFollowSystem(camera, cube));
+    world.addSystem(new WeaponsSystem(cube));
 
    // (optional) register any pre-fitted assets here later
 

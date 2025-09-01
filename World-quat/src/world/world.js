@@ -4,7 +4,8 @@ export class World {
         this.entities = [];
         this.controllers = [];
         this.systems = [];
-        this.actionMap = null; // optional, set from app
+        this.actionMap = null; // optional
+        this.view = null;      // optional (e.g., activeCameraId)
     }
 
     add(entity) {
@@ -15,7 +16,9 @@ export class World {
 
     remove(entity) {
         const i = this.entities.indexOf(entity);
-        if (i >= 0) this.entities.splice(i, 1);
+        if (i >= 0) {
+            this.entities.splice(i, 1);
+        }
     }
 
     addController(ctrl) {
@@ -29,7 +32,6 @@ export class World {
     }
 
     update(dt) {
-        // Legacy hook: if callers still use world.update directly.
         for (const e of this.entities) {
             if (e.alive && typeof e.update === "function") {
                 e.update(dt, this);
