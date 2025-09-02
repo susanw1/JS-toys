@@ -48,6 +48,35 @@ export class Entity {
         }
     }
 
+    // Find the first asset matching a predicate.
+    // predicate(asset, { parent, mountId, depth }) → truthy to select
+    findAsset(predicate) {
+        let hit = null;
+        this.iterateAssets((a, info) => {
+            if (predicate(a, info)) {
+                hit = a;
+                return false; // prune
+            }
+        });
+        return hit;
+    }
+
+    // Convenience: first asset by kind string (e.g., "weapon", "camera").
+    findFirstAssetByKind(kind) {
+        return this.findAsset((a) => a.kind === kind);
+    }
+
+    // Convenience: gather all assets by kind.
+    findAssetsByKind(kind) {
+        const out = [];
+        this.iterateAssets((a) => {
+            if (a.kind === kind) {
+                out.push(a);
+            }
+        });
+        return out;
+    }
+
     // --- Pure helpers ----------------------------------------------------
 
     // Rotate a local-space vector by this entity’s rotation (does not mutate).

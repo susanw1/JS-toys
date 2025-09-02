@@ -6,7 +6,7 @@ export class PlayerCameraSystem {
 
     step(dt) {
         const player = this.player;
-        const host = player.controlled;
+        const host = player.controlledEntity;
         const renderCamera = player.camera;
         if (!host || !renderCamera) {
             return;

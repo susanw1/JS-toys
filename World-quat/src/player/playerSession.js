@@ -7,12 +7,12 @@ export class PlayerSession {
         this.inputMgr = inputMgr;   // InputManager (for humans); bots may not have one
 
         this.actionMap = new ActionMap();
-        this.controlled = null;    // Entity this player possesses
+        this.controlledEntity = null;    // Entity this player possesses
         this.view = { activeCameraId: null }; // per-player active camera
     }
 
-    setControlled(entity) {
-        this.controlled = entity;
+    setControlledEntity(entity) {
+        this.controlledEntity = entity;
         // Rebuild action map to reflect this entity's assets
         this.rebindActions();
     }
@@ -28,7 +28,7 @@ export class PlayerSession {
         // simplest: replace the map to avoid residual bindings
         this.actionMap = new ActionMap();
 
-        const host = this.controlled;
+        const host = this.controlledEntity;
         if (!host) {
             return;
         }

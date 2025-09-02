@@ -9,6 +9,7 @@ import { MeshShape } from "./shapes/mesh.js";
 
 import { PlayerSession } from "./player/playerSession.js";
 import { PlayerCameraSystem } from "./systems/playerCameraSystem.js";
+import { BotSession } from "./player/botSession.js";
 
 import { InputManager } from "./input/inputManager.js";
 import { PlayerController } from "./controllers/playerController.js";
@@ -88,7 +89,7 @@ export function createScene(canvas) {
     const player = new PlayerSession(world, { camera, inputMgr: inputMgr });
 
     // Possess the cube and bind its actions
-    player.setControlled(cube);
+    player.setControlledEntity(cube);
     // Start on the head camera
     player.view.activeCameraId = headCam.id;
 
@@ -101,6 +102,37 @@ export function createScene(canvas) {
     world.addController(new CameraController(camera, inputMgr, TUNE));
     world.addSystem(new TrackingSystem(cube, camera, inputMgr, TUNE));
 
+    // Create a bot-controlled cube
+    const botShape = cubeShape; // reuse
+    const botCube = new Cube({ shape: botShape, position: [4, 0, 8] });
+    world.add(botCube);
+
+    // Mounts + assets on the bot (head cam + gun + barrel cam)
+    botCube.addMount({ id: "head",  category: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
+    botCube.addMount({ id: "handR", category: "hardpoint", transform: makeTransform([0.7, 0.0, 0.4]) });
+
+    const botHeadCam = new CameraAsset({ name: "BotHeadCam" });
+    botCube.fitAsset(botHeadCam, "head");
+
+    const botGun = new WeaponAsset({ fireRate: 4, magSize: 6 });
+    botGun.local.pos = [0.0, -0.12, 0.25];
+    botGun.mesh = botShape.scaledMesh(0.22, 0.22, 0.56);
+    botCube.fitAsset(botGun, "handR");
+
+    botGun.addMount({ id: "barrel", category: "hardpoint" });
+    const botBarrelCam = new CameraAsset({ name: "BotBarrelCam" });
+    botBarrelCam.local.pos = [0.0, 0.0, 0.35];
+    botGun.fitAsset(botBarrelCam, "barrel");
+
+    // Spin the bot’s gun slowly too (optional)
+    botGun.spinRate = 0.6;
+    botGun.spinAxis = [0, 1, 0];
+
+    // Make a bot session and possess the bot cube
+    const bot = new BotSession(world);
+    bot.setControlledEntity(botCube);
+    world.addController(bot);
+
     printTree(cube, { showCaps: true, showIds: true });
 
     // One per-player binding for C → cycle cameras on the possessed entity
@@ -110,7 +142,7 @@ export function createScene(canvas) {
         type: "press",
         suggestedKeys: ["KeyC"],
         invoke: () => {
-            const cams = listCameras(player.controlled);
+            const cams = player.controlledEntity.findAssetsByKind("camera");
             if (!cams.length) {
                 return;
             }
@@ -151,14 +183,4 @@ export function createScene(canvas) {
         },
         TUNE
     };
-}
-
-function listCameras(host) {
-    const out = [];
-    host.iterateAssets((a) => {
-        if (a.kind === "camera") {
-            out.push(a);
-        }
-    });
-    return out;
 }
