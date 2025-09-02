@@ -24,6 +24,7 @@ export class Entity {
 
         // World backref (set by World.add)
         this.world = null;
+        this.ownerId = (opts.ownerId ?? null);
 
         // permanent root asset that owns all mounts/actions/capabilities
         this.root = new RootAsset(this);
@@ -126,6 +127,10 @@ export class Entity {
     // --- Mounts & Assets (now delegated to root) ------------------------
     addMount(cfg) {
         return this.root.addMount(cfg);
+    }
+
+    setOwner(playerOrId) {
+        this.ownerId = (typeof playerOrId === "string") ? playerOrId : (playerOrId ? playerOrId.id : null);
     }
 
     fitAsset(asset, mountId) {

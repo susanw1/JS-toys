@@ -1,10 +1,12 @@
 import { ActionMap } from "../input/actionMap.js";
 
 export class PlayerSession {
-    constructor(world, { camera = null, inputMgr = null } = {}) {
+    constructor(world, { camera = null, inputMgr = null, player = null } = {}) {
         this.world = world;
         this.camera = camera;       // render camera for this player
         this.inputMgr = inputMgr;   // InputManager (for humans); bots may not have one
+
+        this.player = player || null;     // NEW: link to model player
 
         this.actionMap = new ActionMap();
         this.controlledEntity = null;    // Entity this player possesses
@@ -13,6 +15,9 @@ export class PlayerSession {
 
     setControlledEntity(entity) {
         this.controlledEntity = entity;
+        if (this.player) {
+            this.player.controlledEntity = entity;
+        }
         // Rebuild action map to reflect this entity's assets
         this.rebindActions();
     }

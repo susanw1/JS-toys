@@ -7,6 +7,8 @@ export class World {
         this.view = null;
 
         this.byCap = Object.create(null);   // capability -> Set<Asset>
+
+        this.players = [];
     }
 
     add(entity) {
@@ -65,6 +67,32 @@ export class World {
         }
     }
 
+    // ---------- Players ----------
+    addPlayer(player) {
+        this.players.push(player);
+        return player;
+    }
+
+    removePlayer(player) {
+        const i = this.players.indexOf(player);
+        if (i >= 0) {
+            this.players.splice(i, 1);
+        }
+    }
+
+    getPlayers() {
+        return this.players.slice();
+    }
+
+    findPlayerById(id) {
+        for (const p of this.players) {
+            if (p.id === id) {
+                return p;
+            }
+        }
+        return null;
+    }
+
     // ---------- Simulation ----------
     update(dt) {
         for (const e of this.entities) {
@@ -84,9 +112,6 @@ export class World {
     }
 
     step(dt, input = null) {
-        // share dt with recursive updater without changing signature
-        dtShim = dt;
-
         if (this.actionMap && input) {
             this.actionMap.process(input);
         }
@@ -117,6 +142,3 @@ export class World {
         return null;
     }
 }
-
-// Private module-scoped shim so we don't rewrite signatures
-let dtShim = 0;

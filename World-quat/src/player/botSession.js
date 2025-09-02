@@ -1,9 +1,11 @@
 export class BotSession {
-    constructor(world, { camera = null } = {}) {
+    constructor(world, { camera = null, player = null } = {}) {
         this.world = world;
         this.camera = camera;
         this.controlledEntity = null;
         this.view = { activeCameraId: null };
+
+        this.player = player || null;
 
         this.turnRate   = 0.6;
         this.burstOn    = 0.7;
@@ -18,6 +20,9 @@ export class BotSession {
 
     setControlledEntity(entity) {
         this.controlledEntity = entity;
+        if (this.player) {
+            this.player.controlledEntity = entity;
+        }
         this.#weapon = null;
         this.#selectDefaultCamera();
     }

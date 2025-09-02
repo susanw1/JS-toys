@@ -7,6 +7,7 @@ import { Cube } from "./entities/cube.js";
 import { Asset } from "./assets/asset.js";
 import { MeshShape } from "./shapes/mesh.js";
 
+import { Player } from "./player/player.js";
 import { PlayerSession } from "./player/playerSession.js";
 import { PlayerCameraSystem } from "./systems/playerCameraSystem.js";
 import { BotSession } from "./player/botSession.js";
@@ -90,6 +91,8 @@ export function createScene(canvas) {
 
     // Possess the cube and bind its actions
     player.setControlledEntity(cube);
+    world.addController(player);
+
     // Start on the head camera
     player.view.activeCameraId = headCam.id;
 
@@ -125,13 +128,22 @@ export function createScene(canvas) {
     botGun.fitAsset(botBarrelCam, "barrel");
 
     // Spin the bot’s gun slowly too (optional)
-    botGun.spinRate = 0.6;
+    botGun.spinRate = 2.3;
     botGun.spinAxis = [0, 1, 0];
 
     // Make a bot session and possess the bot cube
     const bot = new BotSession(world);
     bot.setControlledEntity(botCube);
     world.addController(bot);
+
+    // Create model players (world-level)
+    const humanPlayer = new Player({ id: "P1", name: "You", team: 1, isHuman: true });
+    const botPlayer   = new Player({ id: "B1", name: "Bot 1", team: 2, isHuman: false });
+    world.addPlayer(humanPlayer);
+    world.addPlayer(botPlayer);
+
+    cube.setOwner(humanPlayer);
+    botCube.setOwner(botPlayer);
 
     printTree(cube, { showCaps: true, showIds: true });
 
@@ -160,9 +172,8 @@ export function createScene(canvas) {
         const dt = Math.min((now - lastTime) / 1000, 0.05);
         lastTime = now;
 
-        player.processInput();
         world.step(dt);
-        viewer.render({ camera, entities: [cube], withGrid: true });
+        viewer.render({ camera, entities: world.entities, withGrid: true });
 
         inputMgr.endFrame();
         requestAnimationFrame(tick);
