@@ -35,6 +35,28 @@ export class Asset {
         return h ? h.world : null;
     }
 
+    // Return the owning Entity (climb through asset hosts to the root).
+    getHostEntity() {
+        let h = this.host;
+
+        // Climb up through assets until the topmost host.
+        while (h && h.host) {
+            h = h.host;
+        }
+
+        // If top is an Entity (has position), return it.
+        if (h && Array.isArray(h.position)) {
+            return h;
+        }
+
+        // If top is a RootAsset, it exposes .entity → the owning Entity.
+        if (h && h.entity && Array.isArray(h.entity.position)) {
+            return h.entity;
+        }
+
+        return null;
+    }
+
     // ---------- Mounts on assets ----------
     addMount({ id, category = "", transform = makeTransform(), accepts = null }) {
         this.mounts[id] = { id, category, transform, accepts, asset: null };

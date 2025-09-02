@@ -20,10 +20,11 @@ function localMoveFromHeld(held, map, step) {
 }
 
 export class CameraController {
-    constructor(camera, input, tune) {
+    constructor(camera, input, tune, session = null) {
         this.camera = camera;
         this.input = input;
         this.tune = tune;
+        this.session = session;
         this.fpsMode = true;
     }
 
@@ -31,6 +32,10 @@ export class CameraController {
         // update mode from toggles (F key)
         this.fpsMode = !!this.input.toggles.fpsMode;
 
+        // Only move the render camera when player is in free-cam mode
+        if (this.session && this.session.followView !== false) {
+            return;
+        }
         // pointer yaw/pitch
         const sens = (this.input.pointer.type === "mouse") ? this.tune.mouseSensitivity : this.tune.touchSensitivity;
         const yaw =  this.input.pointer.dx * sens;

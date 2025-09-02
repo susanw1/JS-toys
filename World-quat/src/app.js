@@ -22,6 +22,8 @@ import { CameraAsset } from "./assets/cameraAsset.js";
 import { WeaponAsset } from "./assets/weaponAsset.js";
 import { WeaponsSystem } from "./systems/weaponsSystem.js";
 
+import { MotorAsset } from "./assets/motorAsset.js";
+
 import { quatFromAxisAngle, quatNormalizePositive } from "./math/quat.js";
 import { printTree } from "./debug/printTree.js";
 
@@ -68,6 +70,7 @@ export function createScene(canvas) {
     // Mounts on the cube
     cube.addMount({ id: "head",  category: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
     cube.addMount({ id: "handR", category: "hardpoint", transform: makeTransform([0.7, 0.0, 0.4]) });
+    cube.addMount({ id: "core", category: "hardpoint", transform: makeTransform([0, 0, 0]) });
 
     // Fit assets
     const headCam = new CameraAsset({ name: "HeadCam" });
@@ -86,6 +89,9 @@ export function createScene(canvas) {
     barrelCam.local.pos = [0.0, 0.0, 0.35]; // just forward along local +Z
     gun.fitAsset(barrelCam, "barrel");
 
+    const motor = new MotorAsset({ linearSpeed: 3.0, angularSpeed: 1.6 });
+    cube.fitAsset(motor, "core");
+
     // Create player with its own action map and render camera
     const player = new PlayerSession(world, { camera, inputMgr: inputMgr });
 
@@ -102,7 +108,7 @@ export function createScene(canvas) {
 
    // register any pre-fitted assets here later
     world.addController(new PlayerController(cube,  inputMgr, TUNE));
-    world.addController(new CameraController(camera, inputMgr, TUNE));
+    world.addController(new CameraController(camera, inputMgr, TUNE, player));
     world.addSystem(new TrackingSystem(cube, camera, inputMgr, TUNE));
 
     // Create a bot-controlled cube
@@ -113,6 +119,7 @@ export function createScene(canvas) {
     // Mounts + assets on the bot (head cam + gun + barrel cam)
     botCube.addMount({ id: "head",  category: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
     botCube.addMount({ id: "handR", category: "hardpoint", transform: makeTransform([0.7, 0.0, 0.4]) });
+    botCube.addMount({ id: "core", category: "hardpoint", transform: makeTransform([0, 0, 0]) });
 
     const botHeadCam = new CameraAsset({ name: "BotHeadCam" });
     botCube.fitAsset(botHeadCam, "head");
@@ -128,8 +135,11 @@ export function createScene(canvas) {
     botGun.fitAsset(botBarrelCam, "barrel");
 
     // Spin the bot’s gun slowly too (optional)
-    botGun.spinRate = 2.3;
+    botGun.spinRate = 0.3;
     botGun.spinAxis = [0, 1, 0];
+
+    const botMotor = new MotorAsset({ linearSpeed: 2.6, angularSpeed: 1.2 });
+    botCube.fitAsset(botMotor, "core");
 
     // Make a bot session and possess the bot cube
     const bot = new BotSession(world);
@@ -162,6 +172,15 @@ export function createScene(canvas) {
             let idx = cams.findIndex(a => a.id === curId);
             idx = (idx < 0) ? 0 : (idx + 1) % cams.length;
             player.view.activeCameraId = cams[idx].id;
+        }
+    });
+    player.registerGlobal({
+        id: "player_toggle_freecam",
+        label: "Toggle Free Cam",
+        type: "toggle",
+        suggestedKeys: ["KeyV"],
+        invoke: ({ toggled }) => {
+            player.followView = !player.followView;
         }
     });
 

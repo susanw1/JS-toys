@@ -37,6 +37,16 @@ export class BotSession {
 
         host.rotateAroundWorld([0, 1, 0], this.turnRate * dt);
 
+        const motor = host.findFirstAssetByKind("motor");
+        // Apply a gentle yaw via motor (local +Y)
+        if (motor && this.turnRate) {
+            motor.addTurn(0, 1, 0); // 1 unit * angularSpeed * dt inside motor
+        } else if (this.turnRate) {
+            // Fallback if no motor fitted
+            host.rotateAroundWorld([0, 1, 0], this.turnRate * dt);
+        }
+
+
         if (!this.#weapon || this.#weapon.host !== host) {
             this.#weapon = host.findFirstAssetByKind("weapon");
         }

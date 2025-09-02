@@ -1,24 +1,16 @@
 import { quatFromAxisAngle, quatMultiply, quatNormalizePositive, quatRotateVector } from "../math/quat.js";
 import { vadd } from "../math/vec3.js";
 
-const LOCAL_MOVE_VECTORS = {
-    ArrowUp:    [ 0,  0,  1],
-    ArrowDown:  [ 0,  0, -1],
-    ArrowLeft:  [-1,  0,  0],
-    ArrowRight: [ 1,  0,  0],
-    PageUp:     [ 0,  1,  0],
-    PageDown:   [ 0, -1,  0],
-};
-
-function localMoveFromHeld(held, map, step) {
-    let x = 0, y = 0, z = 0;
-    for (const code of held) {
-        const v = map[code];
-        if (v) { x += v[0] * step; y += v[1] * step; z += v[2] * step; }
-    }
-    return [x, y, z];
-}
-
+// Drives the possessed entity via a MotorAsset using keyboard input.
+// Movement is in the entity's LOCAL frame (forward +Z, right +X, up +Y).
+//
+// Keys:
+//   Move:  W/S (±Z), A/D (±X), Q/E (±Y)
+//   Turn:  P (pitch +), Y (yaw +), R (roll +)   — hold Shift to invert sign
+//
+// Notes:
+//   - MotorAsset applies speeds and dt; we just send unit intents per frame.
+//   - If no motor is fitted, this controller quietly does nothing (safe fallback).
 export class PlayerController {
     constructor(entity, input, tune) {
         this.entity = entity;
@@ -27,29 +19,46 @@ export class PlayerController {
     }
 
     step(dt) {
-        const e = this.entity;
-        const held = this.input.held;
-        const sign = this.input.shift ? -1 : 1;
-        const turnRate = e.params.turnRate;
-        const moveRate = e.params.moveRate;
-
-        // rotations R/P/Y
-        let dq = null;
-        if (held.has("KeyR")) { dq = (dq ?? [1,0,0,0]); dq = quatMultiply(dq, quatFromAxisAngle([0,0,1], sign * turnRate * dt)); }
-        if (held.has("KeyP")) { dq = (dq ?? [1,0,0,0]); dq = quatMultiply(dq, quatFromAxisAngle([1,0,0], sign * turnRate * dt)); }
-        if (held.has("KeyY")) { dq = (dq ?? [1,0,0,0]); dq = quatMultiply(dq, quatFromAxisAngle([0,1,0], sign * turnRate * dt)); }
-        if (dq) {
-            e.rotation = quatNormalizePositive(quatMultiply(e.rotation, dq));
-            if (!Number.isFinite(e.rotation[0] + e.rotation[1] + e.rotation[2] + e.rotation[3])) {
-                console.warn("Bad quaternion", e.rotation);
-            }
+        const host = this.entity;
+        if (!host) {
+            return;
         }
 
-        // translation by arrows
-        const vLocal = localMoveFromHeld(held, LOCAL_MOVE_VECTORS, moveRate * dt);
-        if (vLocal[0] || vLocal[1] || vLocal[2]) {
-            const world = quatRotateVector(e.rotation, vLocal);
-            e.position = vadd(e.position, world);
+        const motor = host.findFirstAssetByKind("motor");
+        if (!motor) {
+            return;
+        }
+
+        const held = this.input.held;
+
+        // -------- Move (local space via Arrow keys) --------
+        let mx = 0, my = 0, mz = 0;
+
+        if (held.has("ArrowUp"))    { mz += 1; console.log(`ArrowUp!`);}  // forward  (+Z)
+        if (held.has("ArrowDown"))  { mz -= 1; }  // backward (-Z)
+        if (held.has("ArrowLeft"))  { mx -= 1; }  // left     (-X)
+        if (held.has("ArrowRight")) { mx += 1; }  // right    (+X)
+
+        if (held.has("PageUp"))     { my += 1; }  // up       (+Y)
+        if (held.has("PageDown"))   { my -= 1; }  // down     (-Y)
+
+        // Optional: sprint while Shift is held (affects move only)
+        const sprint = (held.has("ShiftLeft") || held.has("ShiftRight")) ? 1.5 : 1.0;
+
+        if (mx || my || mz) {
+            motor.addMove(mx * sprint, my * sprint, mz * sprint);
+        }
+
+        // -------- Turn (local axes via P/Y/R) --------
+        const inv = (held.has("ShiftLeft") || held.has("ShiftRight")) ? -1 : 1;
+
+        let tp = 0, ty = 0, tr = 0;
+        if (held.has("KeyP")) { tp += 1 * inv; }   // pitch about +X
+        if (held.has("KeyY")) { ty += 1 * inv; }   // yaw   about +Y
+        if (held.has("KeyR")) { tr += 1 * inv; }   // roll  about +Z
+
+        if (tp || ty || tr) {
+            motor.addTurn(tp, ty, tr);
         }
     }
 }

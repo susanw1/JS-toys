@@ -5,6 +5,10 @@ export class PlayerCameraSystem {
     }
 
     step(dt) {
+        if (this.player && this.player.followView === false) {
+            return;
+        }
+        
         const player = this.player;
         const host = player.controlledEntity;
         const renderCamera = player.camera;

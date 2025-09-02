@@ -12,6 +12,8 @@ export class PlayerSession {
         this.controlledEntity = null;    // Entity this player possesses
         this.view = { activeCameraId: null }; // per-player active camera
 
+        this.followView = true;
+
         this.#globalActions = [];
     }
 
