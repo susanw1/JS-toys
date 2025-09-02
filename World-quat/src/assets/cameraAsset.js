@@ -27,29 +27,6 @@ export class CameraAsset extends Asset {
     }
 
     getActions() {
-        return [
-            {
-                id: `${this.id}_cycle`,
-                label: "Cycle Camera",
-                type: "press",
-                suggestedKeys: ["KeyC"],
-                invoke: () => {
-                    const host = this.host;
-                    const world = host?.world;
-                    if (!host || !world) {
-                        return;
-                    }
-                    const cams = camerasOn(host);
-                    if (cams.length === 0) {
-                        return;
-                    }
-                    const cur = world.view?.activeCameraId;
-                    let idx = Math.max(0, cams.findIndex(a => a.id === cur));
-                    idx = (idx + 1) % cams.length;
-                    world.view = (world.view || {});
-                    world.view.activeCameraId = cams[idx].id;
-                }
-            }
-        ];
+        return [];
     }
 }

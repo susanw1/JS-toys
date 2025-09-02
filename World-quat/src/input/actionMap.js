@@ -8,6 +8,13 @@ export class ActionMap {
         this.toggleState = new Map();// actionId -> boolean
     }
 
+    registerGlobal(action) {
+        this.actions.set(action.id, { asset: null, action });
+        for (const key of (action.suggestedKeys || [])) {
+            this.bind(key, action.id);
+        }
+    }
+
     registerAsset(asset) {
         const list = asset.getActions?.() || [];
         for (const action of list) {

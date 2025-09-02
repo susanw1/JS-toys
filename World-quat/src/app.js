@@ -17,7 +17,10 @@ import { ActionMap } from "./input/actionMap.js";
 import { CameraAsset } from "./assets/cameraAsset.js";
 import { WeaponAsset } from "./assets/weaponAsset.js";
 import { CameraFollowSystem } from "./systems/cameraFollowSystem.js";
+import { AssetFollowerSystem } from "./systems/assetFollowerSystem.js";
 import { WeaponsSystem } from "./systems/weaponsSystem.js";
+
+import { quatFromAxisAngle, quatNormalizePositive } from "./math/quat.js";
 
 // ---------- Tunables ----------
 export const TUNE = {
@@ -46,7 +49,7 @@ export function createScene(canvas) {
     cube.addMount({ id: "top", category: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
     const dummy = new Asset({ kind: "dummy", mesh: cube.shape.scaledMesh(0.5, 1, 0.5) }); // reuse cube mesh to see it draw
     dummy.local.pos = [0, 0.5, 0]; // offset above
-    dummy.local.rot = [0.5, 1, 0, 0]; // offset above
+    dummy.local.rot = quatFromAxisAngle([1, 0, 0], Math.PI / 8);
     cube.fitAsset(dummy, "top");
     world.add(cube);
 
@@ -64,10 +67,15 @@ export function createScene(canvas) {
     // Mounts on the cube
     cube.addMount({ id: "head",  category: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
     cube.addMount({ id: "handR", category: "hardpoint", transform: makeTransform([0.7, 0.0, 0.4]) });
+    cube.addMount({ id: "handR_cam", category: "hardpoint", transform: makeTransform([0.7, 0.0, 0.4]) });
 
     // Fit assets
     const headCam = new CameraAsset({ name: "HeadCam" });
     cube.fitAsset(headCam, "head");
+    const barrelCam = new CameraAsset({ name: "BarrelCam" });
+    cube.fitAsset(barrelCam, "handR_cam");
+    // Put the barrel cam slightly in front of the weapon (y-up, forward = +z)
+    const barrelOffset = makeTransform([0.0, 0.0, 0.35]);
 
     const gun = new WeaponAsset({ fireRate: 5, magSize: 6 });
     gun.local.pos = [0.0, -0.12, 0.25];
@@ -75,6 +83,9 @@ export function createScene(canvas) {
     gun.spinRate = 0.8;
     gun.spinAxis = [0, 1, 0]; // spin around local up instead
     cube.fitAsset(gun, "handR");
+
+    // Follow the gun's local transform each frame: barrelCam.local = gun.local ∘ offset
+    world.addSystem(new AssetFollowerSystem(gun, barrelCam, barrelOffset));
 
     // Systems for these assets
     world.addSystem(new CameraFollowSystem(camera, cube));
@@ -85,6 +96,26 @@ export function createScene(canvas) {
     world.addController(new PlayerController(cube,  inputMgr, TUNE));
     world.addController(new CameraController(camera, inputMgr, TUNE));
     world.addSystem(new TrackingSystem(cube, camera, inputMgr, TUNE));
+
+    // One global binding for C → cycle through cameras on the cube
+    world.actionMap.registerGlobal({
+        id: "world_cycle_camera",
+        label: "Cycle Camera",
+        type: "press",
+        suggestedKeys: ["KeyC"],
+        invoke: () => {
+            const cams = listCameras(cube);
+            if (cams.length === 0) {
+                return;
+            }
+            const curId = world.view?.activeCameraId;
+            let idx = Math.max(0, cams.findIndex(a => a.id === curId));
+            idx = (idx + 1) % cams.length;
+            world.view = (world.view || {});
+            world.view.activeCameraId = cams[idx].id;
+        }
+    });
+    world.view = { activeCameraId: headCam.id };
 
     // Timing
     let lastTime = performance.now();
@@ -115,4 +146,15 @@ export function createScene(canvas) {
         },
         TUNE
     };
+}
+
+function listCameras(host) {
+    const out = [];
+    for (const id in host.mounts) {
+        const a = host.mounts[id].asset;
+        if (a && a.kind === "camera") {
+            out.push(a);
+        }
+    }
+    return out;
 }
