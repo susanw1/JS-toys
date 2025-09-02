@@ -18,9 +18,6 @@ export class Entity {
         this.params = opts.params || {};
         this.state = opts.state || {};
 
-        // Optional shape for render/collision
-        this.shape = opts.shape || null;
-
         // Tag/type for filtering (e.g., "cube", "shell", "machine")
         this.kind = opts.kind || "entity";
         this.alive = true;
@@ -30,6 +27,8 @@ export class Entity {
 
         // permanent root asset that owns all mounts/actions/capabilities
         this.root = new RootAsset(this);
+        // Optional shape for render/collision
+        this.root.mesh = opts.shape || null;
 
         // Back-compat alias: expose mounts via getter so existing code still works.
         Object.defineProperty(this, "mounts", {
@@ -39,6 +38,14 @@ export class Entity {
 
     update(dt, world) {
         // Default: no-op. Subclasses can override.
+    }
+
+    // Visit all assets under this entity (starting at the root asset).
+    // visitor(asset, { parent, mountId, depth })
+    iterateAssets(visitor) {
+        if (this.root) {
+            this.root.iterate(visitor, null, null, 0);
+        }
     }
 
     // --- Pure helpers ----------------------------------------------------

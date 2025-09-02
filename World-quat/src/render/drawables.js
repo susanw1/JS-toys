@@ -2,9 +2,6 @@
 export function collectDrawables(entities) {
     const out = [];
     for (const e of entities) {
-        if (e.shape) {
-            out.push({ mesh: e.shape, transform: { pos: e.position, rot: e.rotation } });
-        }
         for (const mId in (e.mounts || {})) {
             const a = e.mounts[mId].asset;
             if (a && a.mesh) {

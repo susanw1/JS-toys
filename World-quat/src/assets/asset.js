@@ -98,6 +98,24 @@ export class Asset {
             : this.host.worldTransform(); // parent asset already composes itself
         return composeTransform(composeTransform(Te, mount.transform), this.local);
     }
+
+    // Depth-first traversal starting at this asset.
+    // visitor(asset, { parent, mountId, depth }) may return:
+    //   false -> do not descend into this asset's children (prune)
+    iterate(visitor, parent = null, mountId = null, depth = 0) {
+        const info = { parent, mountId, depth };
+        const res = visitor(this, info);
+        if (res === false) {
+            return;
+        }
+        const mounts = this.mounts || {};
+        for (const id in mounts) {
+            const child = mounts[id].asset;
+            if (child) {
+                child.iterate(visitor, this, id, depth + 1);
+            }
+        }
+    }
 }
 
 function wouldCreateCycle(asset, newHost) {

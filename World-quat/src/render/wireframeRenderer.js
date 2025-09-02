@@ -1,4 +1,5 @@
-import { transformPoint } from "../math/transform.js";
+import { quatConjugate, quatRotateVector } from "../math/quat.js";
+import { transformPoint, composeTransform } from "../math/transform.js";
 
 export class WireframeRenderer {
     constructor(ctx) {
@@ -7,8 +8,10 @@ export class WireframeRenderer {
 
     render(camera, entities, { withGrid = true } = {}) {
         const ctx = this.ctx;
-        const w = ctx.canvas.width;
-        const h = ctx.canvas.height;
+
+        const dpr = window.devicePixelRatio || 1;
+        const w = ctx.canvas.width  / dpr;
+        const h = ctx.canvas.height / dpr;
 
         ctx.clearRect(0, 0, w, h);
 
@@ -19,30 +22,40 @@ export class WireframeRenderer {
         }
 
         for (const e of entities) {
-            // entity mesh
-            if (e.shape) {
-                drawMeshAtTransform(ctx, camera, e.shape, fWorldToCamera, { pos: e.position, rot: e.rotation });
-            }
-            // assets recursively
-            drawAssetsRecursive(ctx, camera, fWorldToCamera, e);
+            drawAssetTree(ctx, camera, fWorldToCamera, e);
         }
-
         drawCrosshair(ctx);
     }
 }
 
 // Recursively draw all assets under a host (Entity or Asset)
-function drawAssetsRecursive(ctx, cam, fWorldToCamera, host) {
-    for (const id in (host.mounts || {})) {
-        const a = host.mounts[id].asset;
-        if (!a) {
-            continue;
+function drawAssetTree(ctx, cam, fWorldToCamera, entity) {
+    // Cache world transforms per asset during this draw
+    const WT = new Map();
+
+    // Root entity transform
+    const Troot = { pos: entity.position, rot: entity.rotation };
+
+    entity.iterateAssets((asset, info) => {
+        let Tw;
+
+        if (!info.parent) {
+            // Root asset: world transform is the entity’s transform
+            Tw = Troot;
+        } else {
+            // Compose parent WT ∘ mount ∘ local
+            const parentTw = WT.get(info.parent);
+            const mount    = info.parent.mounts[info.mountId];
+            const Tpm      = composeTransform(parentTw, mount.transform);
+            Tw             = composeTransform(Tpm, asset.local);
         }
-        if (a.mesh) {
-            drawMeshAtTransform(ctx, cam, a.mesh, fWorldToCamera, a.worldTransform());
+
+        WT.set(asset, Tw);
+
+        if (asset.mesh) {
+            drawMeshAtTransform(ctx, cam, asset.mesh, fWorldToCamera, Tw);
         }
-        drawAssetsRecursive(ctx, cam, fWorldToCamera, a);
-    }
+    });
 }
 
 function project([xc, yc, zc], cam, w, h) {

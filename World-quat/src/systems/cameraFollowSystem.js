@@ -15,10 +15,13 @@ export class CameraFollowSystem {
             return;
         }
 
-        const active = findAssetById(this.host, activeId);
-        if (!active) {
-            return;
-        }
+        let active = null;
+        this.host.iterateAssets((a) => {
+            if (a.id === activeId) {
+                active = a;
+                return false; // prune below; we found the node
+            }
+        });
 
         const Tw = active.worldTransform();
         this.renderCamera.position = Tw.pos.slice();
@@ -31,22 +34,4 @@ export class CameraFollowSystem {
             this.renderCamera.near = active.near;
         }
     }
-}
-
-function findAssetById(host, id) {
-    const mounts = (host && host.mounts) ? host.mounts : {};
-    for (const mId in mounts) {
-        const a = mounts[mId].asset;
-        if (!a) {
-            continue;
-        }
-        if (a.id === id) {
-            return a;
-        }
-        const hit = findAssetById(a, id);
-        if (hit) {
-            return hit;
-        }
-    }
-    return null;
 }

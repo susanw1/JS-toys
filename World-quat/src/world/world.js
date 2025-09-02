@@ -26,24 +26,14 @@ export class World {
     addSystem(sys)      { this.systems.push(sys); return sys; }
 
     // ---------- Capability/action registration (recursive) ----------
-    registerAssetTree(asset) {
-        this.#registerOne(asset);
-        for (const id in (asset.mounts || {})) {
-            const child = asset.mounts[id].asset;
-            if (child) {
-                this.registerAssetTree(child);
-            }
-        }
+    registerAssetTree(root) {
+        const start = root.root || root; // allow Entity or Asset
+        start.iterate((a) => { this.#registerOne(a); });
     }
 
-    unregisterAssetTree(asset) {
-        this.#unregisterOne(asset);
-        for (const id in (asset.mounts || {})) {
-            const child = asset.mounts[id].asset;
-            if (child) {
-                this.unregisterAssetTree(child);
-            }
-        }
+    unregisterAssetTree(root) {
+        const start = root.root || root;
+        start.iterate((a) => { this.#unregisterOne(a); });
     }
 
     #registerOne(asset) {
@@ -85,20 +75,11 @@ export class World {
                 e.update(dt, this);
             }
             // Recursively update all fitted asset trees
-            this.#updateAssetTree(e);
-        }
-    }
-
-    #updateAssetTree(host) {
-        for (const id in (host.mounts || {})) {
-            const a = host.mounts[id].asset;
-            if (!a) {
-                continue;
-            }
-            if (typeof a.update === "function") {
-                a.update(dtShim, this); // dtShim provided by step()
-            }
-            this.#updateAssetTree(a);
+            e.iterateAssets((a) => {
+                if (typeof a.update === "function") {
+                    a.update(dt, this);
+                }
+            });
         }
     }
 

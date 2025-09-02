@@ -18,7 +18,6 @@ export class Cube extends Entity {
                 tracking: false,
                 velocity: [0, 0, 0]    // optional (world)
             },
-            shape: null                // supply a MeshShape instance
         };
         super({ ...defaults, ...opts });
     }

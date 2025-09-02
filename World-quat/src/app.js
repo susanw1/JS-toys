@@ -17,7 +17,6 @@ import { ActionMap } from "./input/actionMap.js";
 import { CameraAsset } from "./assets/cameraAsset.js";
 import { WeaponAsset } from "./assets/weaponAsset.js";
 import { CameraFollowSystem } from "./systems/cameraFollowSystem.js";
-import { AssetFollowerSystem } from "./systems/assetFollowerSystem.js";
 import { WeaponsSystem } from "./systems/weaponsSystem.js";
 
 import { quatFromAxisAngle, quatNormalizePositive } from "./math/quat.js";
@@ -47,12 +46,13 @@ export function createScene(canvas) {
 
     const cubeShape = new MeshShape(CUBE_VERTS, CUBE_EDGES);
     const cube = new Cube({ shape: cubeShape, position: [0, 0, 5] });
+    world.add(cube);
+
     cube.addMount({ id: "top", category: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
-    const dummy = new Asset({ kind: "dummy", mesh: cube.shape.scaledMesh(0.5, 1, 0.5) }); // reuse cube mesh to see it draw
+    const dummy = new Asset({ kind: "dummy", mesh: cubeShape.scaledMesh(0.5, 1, 0.5) }); // reuse cube mesh to see it draw
     dummy.local.pos = [0, 0.5, 0]; // offset above
     dummy.local.rot = quatFromAxisAngle([1, 0, 0], Math.PI / 8);
     cube.fitAsset(dummy, "top");
-    world.add(cube);
 
     const camera = new Camera({ position: [0, 0, 0], zoom: 600, near: 0.01 });
 
@@ -67,7 +67,7 @@ export function createScene(canvas) {
 
     // Mounts on the cube
     cube.addMount({ id: "head",  category: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
-    cube.addMount({ id: "handR", category: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
+    cube.addMount({ id: "handR", category: "hardpoint", transform: makeTransform([0.7, 0.0, 0.4]) });
 
     // Fit assets
     const headCam = new CameraAsset({ name: "HeadCam" });
@@ -75,7 +75,7 @@ export function createScene(canvas) {
 
     const gun = new WeaponAsset({ fireRate: 5, magSize: 6 });
     gun.local.pos = [0.0, -0.12, 0.25];
-    gun.mesh = cube.shape.scaledMesh(0.25, 0.25, 0.60);
+    gun.mesh = cubeShape.scaledMesh(0.25, 0.25, 0.60);
     gun.spinRate = 0.8;
     gun.spinAxis = [0, 1, 0]; // spin around local up instead
     cube.fitAsset(gun, "handR");
@@ -150,24 +150,10 @@ export function createScene(canvas) {
 
 function listCameras(host) {
     const out = [];
-    gatherCams(host, out);
-    return out;
-}
-
-function gatherCams(node, out) {
-    const mounts = (node && node.mounts) ? node.mounts : {};
-
-    // Pre-order: entity-level cameras first, then children.
-    for (const mId in mounts) {
-        const a = mounts[mId].asset;
-        if (a && a.kind === "camera") {
+    host.iterateAssets((a) => {
+        if (a.kind === "camera") {
             out.push(a);
         }
-    }
-    for (const mId in mounts) {
-        const a = mounts[mId].asset;
-        if (a) {
-            gatherCams(a, out);
-        }
-    }
+    });
+    return out;
 }
