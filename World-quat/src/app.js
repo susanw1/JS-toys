@@ -7,16 +7,17 @@ import { Cube } from "./entities/cube.js";
 import { Asset } from "./assets/asset.js";
 import { MeshShape } from "./shapes/mesh.js";
 
+import { PlayerSession } from "./player/playerSession.js";
+import { PlayerCameraSystem } from "./systems/playerCameraSystem.js";
+
 import { InputManager } from "./input/inputManager.js";
 import { PlayerController } from "./controllers/playerController.js";
 import { CameraController } from "./controllers/cameraController.js";
 import { TrackingSystem } from "./systems/trackingSystem.js";
 
 import { makeTransform } from "./math/transform.js";
-import { ActionMap } from "./input/actionMap.js";
 import { CameraAsset } from "./assets/cameraAsset.js";
 import { WeaponAsset } from "./assets/weaponAsset.js";
-import { CameraFollowSystem } from "./systems/cameraFollowSystem.js";
 import { WeaponsSystem } from "./systems/weaponsSystem.js";
 
 import { quatFromAxisAngle, quatNormalizePositive } from "./math/quat.js";
@@ -61,9 +62,6 @@ export function createScene(canvas) {
 
     // Input + controllers/systems
     const inputMgr = new InputManager(canvas);
-    // Action map
-    const actionMap = new ActionMap();
-    world.actionMap = actionMap;
 
     // Mounts on the cube
     cube.addMount({ id: "head",  category: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
@@ -86,8 +84,16 @@ export function createScene(canvas) {
     barrelCam.local.pos = [0.0, 0.0, 0.35]; // just forward along local +Z
     gun.fitAsset(barrelCam, "barrel");
 
+    // Create player with its own action map and render camera
+    const player = new PlayerSession(world, { camera, inputMgr: inputMgr });
+
+    // Possess the cube and bind its actions
+    player.setControlled(cube);
+    // Start on the head camera
+    player.view.activeCameraId = headCam.id;
+
     // Systems for these assets
-    world.addSystem(new CameraFollowSystem(camera, cube));
+    world.addSystem(new PlayerCameraSystem(player));
     world.addSystem(new WeaponsSystem(cube));
 
    // register any pre-fitted assets here later
@@ -97,25 +103,23 @@ export function createScene(canvas) {
 
     printTree(cube, { showCaps: true, showIds: true });
 
-    // One global binding for C → cycle through cameras on the cube
-    world.actionMap.registerGlobal({
-        id: "world_cycle_camera",
+    // One per-player binding for C → cycle cameras on the possessed entity
+    player.actionMap.registerGlobal({
+        id: "player_cycle_camera",
         label: "Cycle Camera",
         type: "press",
         suggestedKeys: ["KeyC"],
         invoke: () => {
-            const cams = listCameras(cube);
-            if (cams.length === 0) {
+            const cams = listCameras(player.controlled);
+            if (!cams.length) {
                 return;
             }
-            const curId = world.view?.activeCameraId;
-            let idx = Math.max(0, cams.findIndex(a => a.id === curId));
-            idx = (idx + 1) % cams.length;
-            world.view = (world.view || {});
-            world.view.activeCameraId = cams[idx].id;
+            const curId = player.view.activeCameraId;
+            let idx = cams.findIndex(a => a.id === curId);
+            idx = (idx < 0) ? 0 : (idx + 1) % cams.length;
+            player.view.activeCameraId = cams[idx].id;
         }
     });
-    world.view = { activeCameraId: headCam.id };
 
     // Timing
     let lastTime = performance.now();
@@ -124,7 +128,8 @@ export function createScene(canvas) {
         const dt = Math.min((now - lastTime) / 1000, 0.05);
         lastTime = now;
 
-        world.step(dt, inputMgr);
+        player.processInput();
+        world.step(dt);
         viewer.render({ camera, entities: [cube], withGrid: true });
 
         inputMgr.endFrame();
