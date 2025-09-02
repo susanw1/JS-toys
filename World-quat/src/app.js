@@ -21,6 +21,7 @@ import { AssetFollowerSystem } from "./systems/assetFollowerSystem.js";
 import { WeaponsSystem } from "./systems/weaponsSystem.js";
 
 import { quatFromAxisAngle, quatNormalizePositive } from "./math/quat.js";
+import { printTree } from "./debug/printTree.js";
 
 // ---------- Tunables ----------
 export const TUNE = {
@@ -66,16 +67,11 @@ export function createScene(canvas) {
 
     // Mounts on the cube
     cube.addMount({ id: "head",  category: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
-    cube.addMount({ id: "handR", category: "hardpoint", transform: makeTransform([0.7, 0.0, 0.4]) });
-    cube.addMount({ id: "handR_cam", category: "hardpoint", transform: makeTransform([0.7, 0.0, 0.4]) });
+    cube.addMount({ id: "handR", category: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
 
     // Fit assets
     const headCam = new CameraAsset({ name: "HeadCam" });
     cube.fitAsset(headCam, "head");
-    const barrelCam = new CameraAsset({ name: "BarrelCam" });
-    cube.fitAsset(barrelCam, "handR_cam");
-    // Put the barrel cam slightly in front of the weapon (y-up, forward = +z)
-    const barrelOffset = makeTransform([0.0, 0.0, 0.35]);
 
     const gun = new WeaponAsset({ fireRate: 5, magSize: 6 });
     gun.local.pos = [0.0, -0.12, 0.25];
@@ -84,18 +80,22 @@ export function createScene(canvas) {
     gun.spinAxis = [0, 1, 0]; // spin around local up instead
     cube.fitAsset(gun, "handR");
 
-    // Follow the gun's local transform each frame: barrelCam.local = gun.local ∘ offset
-    world.addSystem(new AssetFollowerSystem(gun, barrelCam, barrelOffset));
+    // give the gun a 'barrel' mount and fit the barrel cam there
+    gun.addMount({ id: "barrel", category: "hardpoint" });
+    const barrelCam = new CameraAsset({ name: "BarrelCam" });
+    barrelCam.local.pos = [0.0, 0.0, 0.35]; // just forward along local +Z
+    gun.fitAsset(barrelCam, "barrel");
 
     // Systems for these assets
     world.addSystem(new CameraFollowSystem(camera, cube));
     world.addSystem(new WeaponsSystem(cube));
 
-   // (optional) register any pre-fitted assets here later
-
+   // register any pre-fitted assets here later
     world.addController(new PlayerController(cube,  inputMgr, TUNE));
     world.addController(new CameraController(camera, inputMgr, TUNE));
     world.addSystem(new TrackingSystem(cube, camera, inputMgr, TUNE));
+
+    printTree(cube, { showCaps: true, showIds: true });
 
     // One global binding for C → cycle through cameras on the cube
     world.actionMap.registerGlobal({
@@ -150,11 +150,24 @@ export function createScene(canvas) {
 
 function listCameras(host) {
     const out = [];
-    for (const id in host.mounts) {
-        const a = host.mounts[id].asset;
+    gatherCams(host, out);
+    return out;
+}
+
+function gatherCams(node, out) {
+    const mounts = (node && node.mounts) ? node.mounts : {};
+
+    // Pre-order: entity-level cameras first, then children.
+    for (const mId in mounts) {
+        const a = mounts[mId].asset;
         if (a && a.kind === "camera") {
             out.push(a);
         }
     }
-    return out;
+    for (const mId in mounts) {
+        const a = mounts[mId].asset;
+        if (a) {
+            gatherCams(a, out);
+        }
+    }
 }

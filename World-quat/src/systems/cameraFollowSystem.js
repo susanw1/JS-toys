@@ -1,4 +1,3 @@
-// Copies the active camera asset pose into the render camera each frame.
 export class CameraFollowSystem {
     constructor(renderCamera, hostEntity) {
         this.renderCamera = renderCamera;
@@ -6,23 +5,17 @@ export class CameraFollowSystem {
     }
 
     step(dt) {
-        const world = this.host?.world;
+        const world = this.host ? this.host.world : null;
         if (!world) {
             return;
         }
-        const activeId = world.view?.activeCameraId;
+
+        const activeId = world.view ? world.view.activeCameraId : null;
         if (!activeId) {
-            return; // no active asset → leave manual control
+            return;
         }
 
-        let active = null;
-        for (const id in this.host.mounts) {
-            const a = this.host.mounts[id].asset;
-            if (a && a.id === activeId) {
-                active = a;
-                break;
-            }
-        }
+        const active = findAssetById(this.host, activeId);
         if (!active) {
             return;
         }
@@ -38,4 +31,22 @@ export class CameraFollowSystem {
             this.renderCamera.near = active.near;
         }
     }
+}
+
+function findAssetById(host, id) {
+    const mounts = (host && host.mounts) ? host.mounts : {};
+    for (const mId in mounts) {
+        const a = mounts[mId].asset;
+        if (!a) {
+            continue;
+        }
+        if (a.id === id) {
+            return a;
+        }
+        const hit = findAssetById(a, id);
+        if (hit) {
+            return hit;
+        }
+    }
+    return null;
 }

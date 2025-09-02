@@ -7,6 +7,7 @@ import {
 } from "../math/quat.js";
 import { vadd } from "../math/vec3.js";
 import { makeTransform } from "../math/transform.js";
+import { RootAsset } from "../assets/rootAsset.js";
 
 export class Entity {
     constructor(opts = {}) {
@@ -24,10 +25,16 @@ export class Entity {
         this.kind = opts.kind || "entity";
         this.alive = true;
 
-        // mounting + inventory + world backref
-        this.mounts = {};        // id -> { id, category, transform, accepts?, asset }
-        this.inventory = [];     // loose assets, if you want it
-        this.world = null;       // set by World.add
+        // World backref (set by World.add)
+        this.world = null;
+
+        // permanent root asset that owns all mounts/actions/capabilities
+        this.root = new RootAsset(this);
+
+        // Back-compat alias: expose mounts via getter so existing code still works.
+        Object.defineProperty(this, "mounts", {
+            get: () => this.root.mounts
+        });
     }
 
     update(dt, world) {
@@ -57,10 +64,9 @@ export class Entity {
     // Transform a local point to world space (rotation + translation).
     modelToWorld(vLocal) {
         const r = this.rotateVectorLocal(vLocal);
-        return [ r[0] + this.position[0],
-                 r[1] + this.position[1],
-                 r[2] + this.position[2] ];
+        return [ r[0] + this.position[0], r[1] + this.position[1], r[2] + this.position[2] ];
     }
+
     // --- Mutating helpers ------------------------------------------------
 
     // Translate in local space (e.g., [dx,dy,dz] in the entity’s frame).
@@ -81,47 +87,17 @@ export class Entity {
         this.rotation = quatNormalizePositive(quatMultiply(dq, this.rotation));
     }
 
-    // --- Mounts & Assets -------------------------------------------
-    addMount({ id, category = "", transform = makeTransform(), accepts = null }) {
-        this.mounts[id] = { id, category, transform, accepts, asset: null };
-        return this.mounts[id];
+    // --- Mounts & Assets (now delegated to root) ------------------------
+    addMount(cfg) {
+        return this.root.addMount(cfg);
     }
 
     fitAsset(asset, mountId) {
-        const m = this.mounts[mountId];
-        if (!m) {
-            throw new Error(`Unknown mount '${mountId}'`);
-        }
-        if (m.asset) {
-            throw new Error(`Mount '${mountId}' already occupied`);
-        }
-
-        // Basic accept check (function or string)
-        if (typeof m.accepts === "string") {
-            if ((asset.kind || "") !== m.accepts) {
-                throw new Error(`Asset kind '${asset.kind}' not accepted by mount '${mountId}'`);
-            }
-        } else if (typeof m.accepts === "function") {
-            if (!m.accepts(asset)) {
-                throw new Error(`Asset not accepted by mount '${mountId}'`);
-            }
-        }
-
-        m.asset = asset;
-        asset.onFitted(this, mountId);
-        this.world?.actionMap?.registerAsset(asset);
-        return asset;
+        const fitted = this.root.fitAsset(asset, mountId);
+        return fitted;
     }
 
     unfitAsset(mountId) {
-        const m = this.mounts[mountId];
-        if (!m || !m.asset) {
-            return null;
-        }
-        const a = m.asset;
-        m.asset = null;
-        a.onUnfitted();
-        this.world?.actionMap?.unregisterAsset(a);
-        return a;
+        return this.root.unfitAsset(mountId);
     }
 }

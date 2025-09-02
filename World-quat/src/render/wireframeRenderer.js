@@ -19,23 +19,31 @@ export class WireframeRenderer {
         }
 
         for (const e of entities) {
+            // entity mesh
             if (e.shape) {
                 drawMeshAtTransform(ctx, camera, e.shape, fWorldToCamera, { pos: e.position, rot: e.rotation });
             }
-            // draw fitted assets (if any)
-            for (const mountId in (e.mounts || {})) {
-                const a = e.mounts[mountId].asset;
-                if (a && a.mesh) {
-                    drawMeshAtTransform(ctx, camera, a.mesh, fWorldToCamera, a.worldTransform());
-                }
-            }
+            // assets recursively
+            drawAssetsRecursive(ctx, camera, fWorldToCamera, e);
         }
 
         drawCrosshair(ctx);
     }
 }
 
-// — helpers
+// Recursively draw all assets under a host (Entity or Asset)
+function drawAssetsRecursive(ctx, cam, fWorldToCamera, host) {
+    for (const id in (host.mounts || {})) {
+        const a = host.mounts[id].asset;
+        if (!a) {
+            continue;
+        }
+        if (a.mesh) {
+            drawMeshAtTransform(ctx, cam, a.mesh, fWorldToCamera, a.worldTransform());
+        }
+        drawAssetsRecursive(ctx, cam, fWorldToCamera, a);
+    }
+}
 
 function project([xc, yc, zc], cam, w, h) {
     const safeZ = Math.max(zc, cam.near);
@@ -89,8 +97,8 @@ function drawGrid(ctx, cam, fWorldToCamera, size = 40, step = 2) {
 }
 
 function drawSegmentWorld(ctx, cam, fWorldToCamera, a, b) {
-    const ac = fWorldToCamera(a, cam);
-    const bc = fWorldToCamera(b, cam);
+    const ac = fWorldToCamera(a);
+    const bc = fWorldToCamera(b);
     const seg = clipSegmentToNear(ac, bc, cam.near);
     if (!seg) {
         return;
