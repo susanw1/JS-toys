@@ -11,6 +11,18 @@ export class PlayerSession {
         this.actionMap = new ActionMap();
         this.controlledEntity = null;    // Entity this player possesses
         this.view = { activeCameraId: null }; // per-player active camera
+
+        this.#globalActions = [];
+    }
+
+    step(dt) {
+        this.processInput();
+    }
+
+    processInput() {
+        if (this.inputMgr) {
+            this.actionMap.process(this.inputMgr);
+        }
     }
 
     setControlledEntity(entity) {
@@ -22,10 +34,9 @@ export class PlayerSession {
         this.rebindActions();
     }
 
-    processInput() {
-        if (this.inputMgr) {
-            this.actionMap.process(this.inputMgr);
-        }
+    registerGlobal(action) {
+        this.#globalActions.push(action);
+        this.actionMap.registerGlobal(action);
     }
 
     // Rebuild the action map: all actions from the controlled entity's asset tree
@@ -34,13 +45,17 @@ export class PlayerSession {
         this.actionMap = new ActionMap();
 
         const host = this.controlledEntity;
-        if (!host) {
-            return;
+        if (host) {
+            host.iterateAssets((a) => {
+                this.actionMap.registerAsset(a);
+            });
         }
 
-        // Register actions from every fitted asset (any depth)
-        host.iterateAssets((a) => {
-            this.actionMap.registerAsset(a);
-        });
+        // reapply global actions (e.g., KeyC to cycle cameras)
+        for (const g of this.#globalActions) {
+            this.actionMap.registerGlobal(g);
+        }
     }
+
+    #globalActions;
 }

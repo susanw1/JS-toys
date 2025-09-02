@@ -148,7 +148,7 @@ export function createScene(canvas) {
     printTree(cube, { showCaps: true, showIds: true });
 
     // One per-player binding for C → cycle cameras on the possessed entity
-    player.actionMap.registerGlobal({
+    player.registerGlobal({
         id: "player_cycle_camera",
         label: "Cycle Camera",
         type: "press",
