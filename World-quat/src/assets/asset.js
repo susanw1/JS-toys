@@ -1,8 +1,10 @@
+import { quatFromAxisAngle, quatMultiply, quatNormalizePositive, quatRotateVector } from "../math/quat.js";
 import { makeTransform, composeTransform } from "../math/transform.js";
+import { makeId } from "../core/id.js";
 
 export class Asset {
     constructor(opts = {}) {
-        this.id = opts.id || `asset_${Math.random().toString(36).slice(2)}`;
+        this.id = opts.id || makeId();
         this.local = makeTransform(opts.position || [0, 0, 0], opts.rotation || [1, 0, 0, 0]);
         this.mesh = opts.mesh || null;
         this.kind = opts.kind || "asset";
@@ -26,13 +28,9 @@ export class Asset {
     }
 
     // ---------- World reference ----------
-    get world() {
-        // Climb to the root entity to read its world
-        let h = this.host;
-        while (h && h.host) {
-            h = h.host;
-        }
-        return h ? h.world : null;
+    getWorld() {
+        const ent = this.getHostEntity();
+        return ent ? ent.world : null;
     }
 
     // Return the owning Entity (climb through asset hosts to the root).
@@ -137,6 +135,31 @@ export class Asset {
                 child.iterate(visitor, this, id, depth + 1);
             }
         }
+    }
+
+    // Convenience directions in LOCAL space (from local.rot)
+    get forward() {
+        return this.rotateVectorLocal([0, 0, 1]);
+    }
+
+    get right() {
+        return this.rotateVectorLocal([1, 0, 0]);
+    }
+
+    get up() {
+        return this.rotateVectorLocal([0, 1, 0]);
+    }
+
+    translateLocal(v3) {
+        const w = quatRotateVector(this.local.rot, v3);
+        this.local.pos = [ this.local.pos[0] + w[0],
+                           this.local.pos[1] + w[1],
+                           this.local.pos[2] + w[2] ];
+    }
+
+    rotateAroundLocal(axisLocal, angle) {
+        const dq = quatFromAxisAngle(axisLocal, angle);
+        this.local.rot = quatNormalizePositive(quatMultiply(this.local.rot, dq));
     }
 }
 

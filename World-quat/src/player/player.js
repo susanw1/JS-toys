@@ -1,6 +1,8 @@
+import { makeId } from "../core/id.js";
+
 export class Player {
     constructor({ id, name, team = 0, isHuman = false } = {}) {
-        this.id = id || `player_${Math.random().toString(36).slice(2)}`;
+        this.id = id || makeId();
         this.name = name || "Player";
         this.team = team;
         this.isHuman = !!isHuman;

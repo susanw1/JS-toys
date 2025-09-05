@@ -1,4 +1,5 @@
 import { Asset } from "./asset.js";
+import { CAP } from "../core/caps.js";
 
 export class MotorAsset extends Asset {
     constructor(opts = {}) {
@@ -19,7 +20,7 @@ export class MotorAsset extends Asset {
     }
 
     getCapabilities() {
-        return { motor: true };
+        return { [CAP.motor]: true };
     }
 
     // --- Public helpers --------------------------------------------------

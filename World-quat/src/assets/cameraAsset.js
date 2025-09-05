@@ -1,4 +1,5 @@
 import { Asset } from "./asset.js";
+import { CAP } from "../core/caps.js";
 
 export class CameraAsset extends Asset {
     constructor(opts = {}) {
@@ -9,7 +10,7 @@ export class CameraAsset extends Asset {
     }
 
     getCapabilities() {
-        return { cameraFeed: true };
+        return { [CAP.cameraFeed]: true };
     }
 
     getActions() {

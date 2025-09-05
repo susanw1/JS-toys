@@ -1,5 +1,6 @@
 import { Asset } from "./asset.js";
 import { quatFromAxisAngle, quatMultiply, quatNormalizePositive } from "../math/quat.js";
+import { CAP } from "../core/caps.js";
 
 export class WeaponAsset extends Asset {
     constructor(opts = {}) {
@@ -16,7 +17,7 @@ export class WeaponAsset extends Asset {
     }
 
     getCapabilities() {
-        return { weapon: true };
+        return { [CAP.weapon]: true };
     }
 
     getActions() {

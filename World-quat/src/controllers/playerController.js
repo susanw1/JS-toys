@@ -34,7 +34,7 @@ export class PlayerController {
         // -------- Move (local space via Arrow keys) --------
         let mx = 0, my = 0, mz = 0;
 
-        if (held.has("ArrowUp"))    { mz += 1; console.log(`ArrowUp!`);}  // forward  (+Z)
+        if (held.has("ArrowUp"))    { mz += 1; }  // forward  (+Z)
         if (held.has("ArrowDown"))  { mz -= 1; }  // backward (-Z)
         if (held.has("ArrowLeft"))  { mx -= 1; }  // left     (-X)
         if (held.has("ArrowRight")) { mx += 1; }  // right    (+X)
