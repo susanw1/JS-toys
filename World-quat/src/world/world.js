@@ -3,6 +3,7 @@ export class World {
         this.entities = [];
         this.controllers = [];
         this.systems = [];
+        this.systemsPost = [];
         this.actionMap = null;
         this.view = null;
 
@@ -24,8 +25,20 @@ export class World {
         }
     }
 
-    addController(ctrl) { this.controllers.push(ctrl); return ctrl; }
-    addSystem(sys)      { this.systems.push(sys); return sys; }
+    addController(ctrl) {
+        this.controllers.push(ctrl);
+        return ctrl;
+    }
+
+    addSystem(system, phase = "pre") {
+        system.world = this;
+        if (phase === "post") {
+            this.systemsPost.push(system);
+        } else {
+            this.systems.push(system);
+        }
+        return system;
+    }
 
     // ---------- Capability/action registration (recursive) ----------
     registerAssetTree(root) {
@@ -122,6 +135,10 @@ export class World {
             s.step?.(dt);
         }
         this.update(dt);
+
+        for (const s of this.systemsPost){
+            s.step(dt);
+        }
     }
 
     // ---------- Capability / query helpers ----------

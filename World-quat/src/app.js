@@ -103,7 +103,7 @@ export function createScene(canvas) {
     player.view.activeCameraId = headCam.id;
 
     // Systems for these assets
-    world.addSystem(new PlayerCameraSystem(player));
+    world.addSystem(new PlayerCameraSystem(player), "post");
     world.addSystem(new WeaponsSystem(cube));
 
    // register any pre-fitted assets here later
