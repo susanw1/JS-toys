@@ -48,10 +48,14 @@ export class WeaponAsset extends Asset {
 
     // give it a gentle spin every frame
     update(dt, world) {
-        const step = this.spinRate * dt;
-        if (step !== 0) {
-            const dq = quatFromAxisAngle(this.spinAxis, step);
-            this.local.rot = quatNormalizePositive(quatMultiply(this.local.rot, dq));
+        if (this.cooldown > 0) {
+            this.cooldown = Math.max(0, this.cooldown - dt);
         }
+
+        if (this.spinRate) {
+            this.rotateAroundLocal(this.spinAxis, this.spinRate * dt);
+        }
+
+        // firing handled by WeaponsSystem
     }
 }

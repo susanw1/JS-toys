@@ -19,6 +19,12 @@ export class Asset {
     getCapabilities() { return {}; }
     getActions() { return []; }
 
+    // Helper to test capabilities safely.
+    hasCapability(key) {
+        const caps = this.getCapabilities?.() || {};
+        return !!caps[key];
+    }
+
     // ---------- Lifecycle ----------
     onFitted(host, mountId) { this.host = host; this.mountId = mountId; }
     onUnfitted() { this.host = null; this.mountId = null; }
@@ -56,8 +62,13 @@ export class Asset {
     }
 
     // ---------- Mounts on assets ----------
-    addMount({ id, category = "", transform = makeTransform(), accepts = null }) {
-        this.mounts[id] = { id, category, transform, accepts, asset: null };
+    addMount(cfg = {}) {
+        const id = cfg.id;
+        const slot = cfg.slot;
+        const transform = cfg.transform || makeTransform();
+        const accepts = cfg.accepts || null;
+
+        this.mounts[id] = { id, slot, transform, accepts, asset: null };
         return this.mounts[id];
     }
 
@@ -70,10 +81,18 @@ export class Asset {
             throw new Error(`Mount '${mountId}' already occupied`);
         }
 
-        // Accepts check (string or function)
+        // Compatibility check
         if (typeof m.accepts === "string") {
-            if ((asset.kind || "") !== m.accepts) {
-                throw new Error(`Asset kind '${asset.kind}' not accepted by mount '${mountId}'`);
+            const rule = m.accepts;
+            if (rule.startsWith("cap:")) {
+                const cap = rule.slice(4);
+                if (!asset.hasCapability?.(cap)) {
+                    throw new Error(`Asset missing capability '${cap}' for mount '${mountId}'`);
+                }
+            } else {
+                if ((asset.kind || "") !== rule) {
+                    throw new Error(`Asset kind '${asset.kind}' not accepted by mount '${mountId}'`);
+                }
             }
         } else if (typeof m.accepts === "function") {
             if (!m.accepts(asset)) {

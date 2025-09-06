@@ -53,7 +53,7 @@ export function createScene(canvas) {
     const cube = new Cube({ shape: cubeShape, position: [0, 0, 5] });
     world.add(cube);
 
-    cube.addMount({ id: "top", category: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
+    cube.addMount({ id: "top", slot: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
     const dummy = new Asset({ kind: "dummy", mesh: cubeShape.scaledMesh(0.5, 1, 0.5) }); // reuse cube mesh to see it draw
     dummy.local.pos = [0, 0.5, 0]; // offset above
     dummy.local.rot = quatFromAxisAngle([1, 0, 0], Math.PI / 8);
@@ -68,9 +68,9 @@ export function createScene(canvas) {
     const inputMgr = new InputManager(canvas);
 
     // Mounts on the cube
-    cube.addMount({ id: "head",  category: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
-    cube.addMount({ id: "handR", category: "hardpoint", transform: makeTransform([0.7, 0.0, 0.4]) });
-    cube.addMount({ id: "core", category: "hardpoint", transform: makeTransform([0, 0, 0]) });
+    cube.addMount({ id: "head",  slot: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
+    cube.addMount({ id: "handR", slot: "hardpoint", transform: makeTransform([0.7, 0.0, 0.4]) });
+    cube.addMount({ id: "core", slot: "hardpoint", transform: makeTransform([0, 0, 0]) });
 
     // Fit assets
     const headCam = new CameraAsset({ name: "HeadCam" });
@@ -84,7 +84,7 @@ export function createScene(canvas) {
     cube.fitAsset(gun, "handR");
 
     // give the gun a 'barrel' mount and fit the barrel cam there
-    gun.addMount({ id: "barrel", category: "hardpoint" });
+    gun.addMount({ id: "barrel", slot: "hardpoint" });
     const barrelCam = new CameraAsset({ name: "BarrelCam" });
     barrelCam.local.pos = [0.0, 0.0, 0.35]; // just forward along local +Z
     gun.fitAsset(barrelCam, "barrel");
@@ -117,9 +117,9 @@ export function createScene(canvas) {
     world.add(botCube);
 
     // Mounts + assets on the bot (head cam + gun + barrel cam)
-    botCube.addMount({ id: "head",  category: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
-    botCube.addMount({ id: "handR", category: "hardpoint", transform: makeTransform([0.7, 0.0, 0.4]) });
-    botCube.addMount({ id: "core", category: "hardpoint", transform: makeTransform([0, 0, 0]) });
+    botCube.addMount({ id: "head",  slot: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
+    botCube.addMount({ id: "handR", slot: "hardpoint", transform: makeTransform([0.7, 0.0, 0.4]) });
+    botCube.addMount({ id: "core", slot: "hardpoint", transform: makeTransform([0, 0, 0]) });
 
     const botHeadCam = new CameraAsset({ name: "BotHeadCam" });
     botCube.fitAsset(botHeadCam, "head");
@@ -129,7 +129,7 @@ export function createScene(canvas) {
     botGun.mesh = botShape.scaledMesh(0.22, 0.22, 0.56);
     botCube.fitAsset(botGun, "handR");
 
-    botGun.addMount({ id: "barrel", category: "hardpoint" });
+    botGun.addMount({ id: "barrel", slot: "hardpoint" });
     const botBarrelCam = new CameraAsset({ name: "BotBarrelCam" });
     botBarrelCam.local.pos = [0.0, 0.0, 0.35];
     botGun.fitAsset(botBarrelCam, "barrel");
