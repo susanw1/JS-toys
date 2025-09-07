@@ -20,8 +20,7 @@ import { TrackingSystem } from "./systems/trackingSystem.js";
 import { makeTransform } from "./math/transform.js";
 import { CameraAsset } from "./assets/cameraAsset.js";
 import { WeaponAsset } from "./assets/weaponAsset.js";
-import { WeaponsSystem } from "./systems/weaponsSystem.js";
-
+import { WeaponEventsSystem } from "./systems/weaponEventsSystem.js";
 import { MotorAsset } from "./assets/motorAsset.js";
 
 import { quatFromAxisAngle, quatNormalizePositive } from "./math/quat.js";
@@ -104,7 +103,7 @@ export function createScene(canvas) {
 
     // Systems for these assets
     world.addSystem(new PlayerCameraSystem(player), "post");
-    world.addSystem(new WeaponsSystem(cube));
+    world.addSystem(new WeaponEventsSystem(), "post");
 
    // register any pre-fitted assets here later
     world.addController(new PlayerController(cube,  inputMgr, TUNE));

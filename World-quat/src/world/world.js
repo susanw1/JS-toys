@@ -2,7 +2,7 @@ export class World {
     constructor() {
         this.entities = [];
         this.controllers = [];
-        this.systems = [];
+        this.systemsPre = [];
         this.systemsPost = [];
         this.actionMap = null;
         this.view = null;
@@ -10,6 +10,7 @@ export class World {
         this.byCap = Object.create(null);   // capability -> Set<Asset>
 
         this.players = [];
+        this.events = [];
     }
 
     add(entity) {
@@ -35,7 +36,7 @@ export class World {
         if (phase === "post") {
             this.systemsPost.push(system);
         } else {
-            this.systems.push(system);
+            this.systemsPre.push(system);
         }
         return system;
     }
@@ -131,7 +132,7 @@ export class World {
         for (const c of this.controllers) {
             c.step?.(dt);
         }
-        for (const s of this.systems) {
+        for (const s of this.systemsPre) {
             s.step?.(dt);
         }
         this.update(dt);
@@ -139,6 +140,26 @@ export class World {
         for (const s of this.systemsPost){
             s.step(dt);
         }
+    }
+
+    // ---------- Events ----------
+    emit(ev) {
+        // ev: { type: string, ...payload }
+        this.events.push(ev);
+    }
+
+    drainEvents(type) {
+        const out = [];
+        const rest = [];
+        for (const e of this.events) {
+            if (e.type === type) {
+                out.push(e);
+            } else {
+                rest.push(e);
+            }
+        }
+        this.events = rest;
+        return out;
     }
 
     // ---------- Capability / query helpers ----------
