@@ -5,10 +5,11 @@ export class PlayerCameraSystem {
     }
 
     step(dt) {
+        // In free-cam mode, do not overwrite the render camera.
         if (this.player && this.player.followView === false) {
             return;
         }
-        
+
         const player = this.player;
         const host = player.controlledEntity;
         const renderCamera = player.camera;
@@ -34,6 +35,7 @@ export class PlayerCameraSystem {
         }
 
         const Tw = active.worldTransform();
+
         renderCamera.position = Tw.pos.slice();
         renderCamera.rotation = Tw.rot.slice();
 

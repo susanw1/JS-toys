@@ -2,11 +2,12 @@ import { vadd, vsub, vscale } from "../math/vec3.js";
 import { shortestArcStep } from "../tracking/shortestArc.js";
 
 export class TrackingSystem {
-    constructor(entity, camera, input, tune) {
+    constructor(entity, camera, input, tune, playerSession = null) {
         this.entity = entity;
         this.camera = camera;
         this.input = input;
         this.tune = tune;
+        this.player = playerSession;
         this.prevCamPos = camera.position.slice();
         this.camVel = [0, 0, 0];
     }
@@ -17,7 +18,25 @@ export class TrackingSystem {
         this.camVel = vscale(delta, 1 / (dt || 1e-6));
         this.prevCamPos = this.camera.position.slice();
 
-        if (!this.input.toggles.trackEnabled) return;
+        if (!this.input.toggles.trackEnabled) {
+            return;
+        }
+        if (this.player && this.player.followView !== false) {
+            return;
+        }
+
+        if (this.player.controlledEntity === this.host) {
+            const activeId = this.player.view?.activeCameraId;
+            if (activeId) {
+                let belongsToHost = false;
+                this.host.iterateAssets((a) => {
+                    if (a.id === activeId) { belongsToHost = true; return false; }
+                });
+                if (belongsToHost) {
+                    return; // self-view; do not aim at our own camera
+                }
+            }
+        }
 
         const trackRate   = this.entity.params.trackTurnRate ?? 0.8;
         const rollRate    = this.entity.params.rollStabilize ?? 2.0;

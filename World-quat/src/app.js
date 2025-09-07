@@ -108,7 +108,7 @@ export function createScene(canvas) {
    // register any pre-fitted assets here later
     world.addController(new PlayerController(cube,  inputMgr, TUNE));
     world.addController(new CameraController(camera, inputMgr, TUNE, player));
-    world.addSystem(new TrackingSystem(cube, camera, inputMgr, TUNE));
+    world.addSystem(new TrackingSystem(cube, camera, inputMgr, TUNE, player));
 
     // Create a bot-controlled cube
     const botShape = cubeShape; // reuse

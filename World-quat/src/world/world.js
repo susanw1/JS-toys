@@ -2,8 +2,8 @@ export class World {
     constructor() {
         this.entities = [];
         this.controllers = [];
-        this.systemsPre = [];
-        this.systemsPost = [];
+        this.preSystems  = [];
+        this.postSystems = [];
         this.actionMap = null;
         this.view = null;
 
@@ -34,9 +34,9 @@ export class World {
     addSystem(system, phase = "pre") {
         system.world = this;
         if (phase === "post") {
-            this.systemsPost.push(system);
+            this.postSystems.push(system);
         } else {
-            this.systemsPre.push(system);
+            this.preSystems.push(system);
         }
         return system;
     }
@@ -132,12 +132,12 @@ export class World {
         for (const c of this.controllers) {
             c.step?.(dt);
         }
-        for (const s of this.systemsPre) {
+        for (const s of this.preSystems) {
             s.step?.(dt);
         }
         this.update(dt);
 
-        for (const s of this.systemsPost){
+        for (const s of this.postSystems){
             s.step(dt);
         }
     }
