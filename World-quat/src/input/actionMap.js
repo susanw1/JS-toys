@@ -16,7 +16,7 @@ export class ActionMap {
     }
 
     registerAsset(asset) {
-        const list = asset.getActions?.() || [];
+        const list = asset.getActions() || [];
         for (const action of list) {
             this.actions.set(action.id, { asset, action });
             for (const key of (action.suggestedKeys || [])) {

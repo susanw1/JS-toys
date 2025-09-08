@@ -24,7 +24,7 @@ export class Asset {
 
     // Helper to test capabilities safely.
     hasCapability(key) {
-        const caps = this.getCapabilities?.() || {};
+        const caps = this.getCapabilities();
         return !!caps[key];
     }
 
@@ -98,7 +98,7 @@ export class Asset {
             const rule = m.accepts;
             if (rule.startsWith("cap:")) {
                 const cap = rule.slice(4);
-                if (!asset.hasCapability?.(cap)) {
+                if (!asset.hasCapability(cap)) {
                     throw new Error(`Asset missing capability '${cap}' for mount '${mountId}'`);
                 }
             } else {
@@ -121,7 +121,7 @@ export class Asset {
         asset.onFitted(this, mountId);
 
         // Recursively register actions/capabilities
-        this.world?.registerAssetTree?.(asset);
+        this.world?.registerAssetTree(asset);
         this.world?.emit(EV.asset_fitted, { host: this, mountId, asset });
         return asset;
     }

@@ -70,7 +70,7 @@ export class World {
         if (this.actionMap) {
             this.actionMap.registerAsset(asset);
         }
-        const caps = asset.getCapabilities?.() || {};
+        const caps = asset.getCapabilities();
         for (const k in caps) {
             if (!caps[k]) {
                 continue;
@@ -86,7 +86,7 @@ export class World {
         if (this.actionMap) {
             this.actionMap.unregisterAsset(asset);
         }
-        const caps = asset.getCapabilities?.() || {};
+        const caps = asset.getCapabilities();
         for (const k in caps) {
             const set = this.byCap[k];
             if (set) {
