@@ -1,5 +1,6 @@
 import { Asset } from "./asset.js";
 import { CAP } from "../core/caps.js";
+import { EV } from "../core/events.js";
 
 export class WeaponAsset extends Asset {
     constructor(opts = {}) {
@@ -50,12 +51,13 @@ export class WeaponAsset extends Asset {
     reload() {
         if (this.#ammo < this.magSize) {
             this.#ammo = this.magSize; // instant for demo
+            this.world.emit(EV.weapon_reloaded, { weapon: this });
             console.log(`[weapon ${this.id}] reloaded`);
         }
     }
 
     // give it a gentle spin every frame
-    update(dt, world) {
+    update(dt) {
         // Cooldown tick
         if (this.#cooldown > 0) {
             this.#cooldown = Math.max(0, this.#cooldown - dt);
@@ -75,8 +77,7 @@ export class WeaponAsset extends Asset {
                 // Emit a fire event with origin/orientation
                 const Tw = this.worldTransform();
                 const owner = this.getHostEntity();
-                world?.emit({
-                    type: "weapon_fired",
+                this.world.emit(EV.weapon_fired, {
                     weapon: this,
                     ownerId: owner ? owner.ownerId : null,
                     transform: { pos: Tw.pos.slice(), rot: Tw.rot.slice() }
@@ -84,10 +85,7 @@ export class WeaponAsset extends Asset {
             } else {
                 // Dry-fire rate-limit (optional)
                 this.#cooldown = 0.3;
-                world?.emit({
-                    type: "weapon_empty",
-                    weapon: this
-                });
+                this.world.emit(EV.weapon_empty, { weapon: this });
             }
         }
     }

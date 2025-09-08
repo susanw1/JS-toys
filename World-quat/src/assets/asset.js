@@ -1,8 +1,11 @@
 import { quatFromAxisAngle, quatMultiply, quatNormalizePositive, quatRotateVector } from "../math/quat.js";
 import { makeTransform, composeTransform } from "../math/transform.js";
 import { makeId } from "../core/id.js";
+import { EV } from "../core/events.js";
 
 export class Asset {
+    #world = null;
+
     constructor(opts = {}) {
         this.id = opts.id || makeId();
         this.local = makeTransform(opts.position || [0, 0, 0], opts.rotation || [1, 0, 0, 0]);
@@ -29,14 +32,23 @@ export class Asset {
     onFitted(host, mountId) { this.host = host; this.mountId = mountId; }
     onUnfitted() { this.host = null; this.mountId = null; }
 
-    update(dt, world) {
+    update(dt) {
         // optional per-frame logic
     }
 
-    // ---------- World reference ----------
-    getWorld() {
-        const ent = this.getHostEntity();
-        return ent ? ent.world : null;
+    // ---------- World / ownership ----------
+    // Direct world pointer (managed by World during (un)registration)
+    get world() {
+        return this.#world;
+    }
+
+    // World calls these when registering/unregistering the subtree.
+    attachWorld(world) {
+        this.#world = world;
+    }
+
+    detachWorld() {
+        this.#world = null;
     }
 
     // Return the owning Entity (climb through asset hosts to the root).
@@ -110,6 +122,7 @@ export class Asset {
 
         // Recursively register actions/capabilities
         this.world?.registerAssetTree?.(asset);
+        this.world?.emit(EV.asset_fitted, { host: this, mountId, asset });
         return asset;
     }
 
@@ -122,6 +135,7 @@ export class Asset {
         m.asset = null;
         a.onUnfitted();
         this.world?.unregisterAssetTree?.(a);
+        this.world?.emit(EV.asset_unfitted, { host: this, mountId, asset: a });
         return a;
     }
 

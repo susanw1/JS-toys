@@ -50,7 +50,7 @@ export class MotorAsset extends Asset {
 
     // --- Frame update ----------------------------------------------------
 
-    update(dt, world) {
+    update(dt) {
         const hostEntity = this.getHostEntity();
         if (!hostEntity) {
             if (this.clearIntentEachFrame) { this.zeroIntent(); }

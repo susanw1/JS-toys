@@ -37,7 +37,7 @@ export class Entity {
         });
     }
 
-    update(dt, world) {
+    update(dt) {
         // Default: no-op. Subclasses can override.
     }
 

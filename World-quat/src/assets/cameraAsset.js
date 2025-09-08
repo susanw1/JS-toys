@@ -30,7 +30,7 @@ export class CameraAsset extends Asset {
     }
 
     // Called during integrate phase; makes view state up to date.
-    update(dt, world) {
+    update(dt) {
         // Base world pose from the rig
         const Tw = this.worldTransform();
         const [tx, ty, tz] = Tw.pos;

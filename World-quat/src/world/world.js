@@ -1,3 +1,5 @@
+import { EventQueue } from "../core/events.js";
+
 export class World {
     constructor() {
         this.entities = [];
@@ -10,12 +12,18 @@ export class World {
         this.byCap = Object.create(null);   // capability -> Set<Asset>
 
         this.players = [];
-        this.events = [];
+
+        this.events = new EventQueue();
+        this.frame = 0;
     }
 
     add(entity) {
         this.entities.push(entity);
         entity.world = this;
+        // Attach the entity’s asset tree to this world.
+        if (entity.root) {
+            this.registerAssetTree(entity.root);
+        }
         return entity;
     }
 
@@ -24,6 +32,11 @@ export class World {
         if (i >= 0) {
             this.entities.splice(i, 1);
         }
+        // Detach the entity’s asset tree from this world.
+        if (entity.root) {
+            this.unregisterAssetTree(entity.root);
+        }
+        entity.world = null;
     }
 
     addController(ctrl) {
@@ -53,6 +66,7 @@ export class World {
     }
 
     #registerOne(asset) {
+        asset.attachWorld(this);
         if (this.actionMap) {
             this.actionMap.registerAsset(asset);
         }
@@ -79,6 +93,7 @@ export class World {
                 set.delete(asset);
             }
         }
+        asset.detachWorld(this);
     }
 
     // ---------- Players ----------
@@ -114,18 +129,20 @@ export class World {
                 continue;
             }
             if (typeof e.update === "function") {
-                e.update(dt, this);
+                e.update(dt);
             }
             // Recursively update all fitted asset trees
             e.iterateAssets((a) => {
                 if (typeof a.update === "function") {
-                    a.update(dt, this);
+                    a.update(dt);
                 }
             });
         }
     }
 
     step(dt, input = null) {
+        this.frame++;
+
         if (this.actionMap && input) {
             this.actionMap.process(input);
         }
@@ -143,23 +160,11 @@ export class World {
     }
 
     // ---------- Events ----------
-    emit(ev) {
-        // ev: { type: string, ...payload }
-        this.events.push(ev);
+    emit(type, payload = {}, source = null) {
+        return this.events.emit(type, payload, { source, frame: this.frame });
     }
-
     drainEvents(type) {
-        const out = [];
-        const rest = [];
-        for (const e of this.events) {
-            if (e.type === type) {
-                out.push(e);
-            } else {
-                rest.push(e);
-            }
-        }
-        this.events = rest;
-        return out;
+        return this.events.drain(type);
     }
 
     // ---------- Capability / query helpers ----------

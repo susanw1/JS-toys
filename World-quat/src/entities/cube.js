@@ -28,7 +28,7 @@ export class Cube extends Entity {
         this.rotation = quatNormalizePositive(quatMultiply(this.rotation, dq));
     }
 
-    update(dt, world) {
+    update(dt) {
         // Put cube-specific AI/behaviour here (optional).
         // Your tracking logic can also live in a system (see app wiring).
     }

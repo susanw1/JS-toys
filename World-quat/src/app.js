@@ -171,6 +171,11 @@ export function createScene(canvas) {
             let idx = cams.findIndex(a => a.id === curId);
             idx = (idx < 0) ? 0 : (idx + 1) % cams.length;
             player.view.activeCameraId = cams[idx].id;
+            player.world.emit(EV.camera_changed, {
+                playerId: player.player ? player.player.id : null,
+                entity: host,
+                cameraAsset: cams[idx]
+            });
         }
     });
     player.registerGlobal({
