@@ -1,0 +1,24 @@
+# .editorconfig
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Keep intentional double-spaces, etc., in Markdown
+[*.md]
+trim_trailing_whitespace = false
+max_line_length = off
+
+# Makefiles need hard tabs
+[Makefile]
+indent_style = tab
+
+# Shell scripts (still 4 spaces)
+[*.{sh,bash}]
+indent_style = space
+indent_size = 4
