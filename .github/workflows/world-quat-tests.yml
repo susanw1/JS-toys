@@ -1,0 +1,46 @@
+name: World-quat – Node tests
+
+on:
+  push:
+    paths:
+      - "World-quat/**"
+      - ".github/workflows/world-quat-tests.yml"
+  pull_request:
+    paths:
+      - "World-quat/**"
+      - ".github/workflows/world-quat-tests.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # All `run:` steps happen inside the World-quat subdir
+    defaults:
+      run:
+        working-directory: World-quat
+
+    strategy:
+      matrix:
+        node-version: [22.x]  # LTS + current
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: World-quat/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Run tests
+        run: npm test
