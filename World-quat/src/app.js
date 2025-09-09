@@ -1,4 +1,3 @@
-// src/app.js
 import { World } from "./world/world.js";
 import { Camera } from "./core/camera.js";
 import { Viewer } from "./render/viewer.js";
@@ -23,6 +22,8 @@ import { CameraAsset } from "./assets/cameraAsset.js";
 import { WeaponAsset } from "./assets/weaponAsset.js";
 import { WeaponEventsSystem } from "./systems/weaponEventsSystem.js";
 import { MotorAsset } from "./assets/motorAsset.js";
+
+import { EV } from "./core/events.js";
 
 import { quatFromAxisAngle, quatNormalizePositive } from "./math/quat.js";
 import { printTree } from "./debug/printTree.js";

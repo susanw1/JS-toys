@@ -1,6 +1,7 @@
+// src/assets/motorAsset.js
 import { Asset } from "./asset.js";
 import { CAP } from "../core/caps.js";
-import { vadd } from "../math/vec3.js";
+import { vadd, vscale } from "../math/vec3.js";
 
 export class MotorAsset extends Asset {
     constructor(opts = {}) {
@@ -10,8 +11,9 @@ export class MotorAsset extends Asset {
         this.linearSpeed  = (opts.linearSpeed  ?? 3.0);
         this.angularSpeed = (opts.angularSpeed ?? 1.8);
 
-        this.space = (opts.space || "local");      // "local" | "world"
-        this.worldUpYaw = !!opts.worldUpYaw;       // yaw about world +Y
+        // How to apply movement/turn
+        this.space = (opts.space || "local");   // "local" | "world"
+        this.worldUpYaw = !!opts.worldUpYaw;    // yaw about world +Y
 
         // If true, zero intents after applying each frame.
         this.clearIntentEachFrame = (opts.clearIntentEachFrame ?? true);
@@ -49,12 +51,11 @@ export class MotorAsset extends Asset {
     }
 
     zeroIntent() {
-        this.intent.move[0] = this.intent.move[1] = this.intent.move[2] = 0;
-        this.intent.turn[0] = this.intent.turn[1] = this.intent.turn[2] = 0;
-        this.intent.turnRad[0] = this.intent.turnRad[1] = this.intent.turnRad[2] = 0;
+        const i = this.intent;
+        i.move[0] = i.move[1] = i.move[2] = 0;
+        i.turn[0] = i.turn[1] = i.turn[2] = 0;
+        i.turnRad[0] = i.turnRad[1] = i.turnRad[2] = 0;
     }
-
-    // --- Frame update ----------------------------------------------------
 
     update(dt) {
         const hostEntity = this.getHostEntity();
@@ -66,11 +67,7 @@ export class MotorAsset extends Asset {
         // Apply translation in local frame
         const mv = this.intent.move;
         if (mv[0] || mv[1] || mv[2]) {
-            const step = [
-                mv[0] * this.linearSpeed * dt,
-                mv[1] * this.linearSpeed * dt,
-                mv[2] * this.linearSpeed * dt
-            ];
+            const step = vscale(mv, this.linearSpeed * dt);
             if (this.space === "world") {
                 // move in world axes
                 hostEntity.position = vadd(hostEntity.position, step);
@@ -80,20 +77,20 @@ export class MotorAsset extends Asset {
             }
         }
 
-        // Apply rotation around local axes
-        const tv = this.intent.turn;
-        const yaw = tv[1] * this.angularSpeed * dt;
-        const pitch = tv[0] * this.angularSpeed * dt;
-        const roll = tv[2] * this.angularSpeed * dt;
+        // ----- rotation (unitless → radians) -----
+        const tu = this.intent.turn;
+        if (tu[0] || tu[1] || tu[2]) {
+            const r = vscale(tu, this.angularSpeed * dt);
 
-        if (pitch) { hostEntity.rotateAroundLocal([1, 0, 0], pitch); }
-        if (roll)  { hostEntity.rotateAroundLocal([0, 0, 1], roll); }
+            if (r[0]) { hostEntity.rotateAroundLocal([1, 0, 0], r[0]); }
+            if (r[2]) { hostEntity.rotateAroundLocal([0, 0, 1], r[2]); }
 
-        if (yaw) {
-            if (this.worldUpYaw) {
-                hostEntity.rotateAroundWorld([0, 1, 0], yaw);
-            } else {
-                hostEntity.rotateAroundLocal([0, 1, 0], yaw);
+            if (r[1]) {
+                if (this.worldUpYaw) {
+                    hostEntity.rotateAroundWorld([0, 1, 0], r[1]);
+                } else {
+                    hostEntity.rotateAroundLocal([0, 1, 0], r[1]);
+                }
             }
         }
 
