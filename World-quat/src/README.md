@@ -23,7 +23,7 @@ A tiny, clean **3D wireframe sandbox** that can grow into a game:
 
 ## Code style (agreed house rules)
 
-* **Formatting:** 4-space indent, spaces around operators, **braced blocks**, readable spacing (no dense one-liners).
+* **Formatting:** 4-space indent, spaces around operators, **braced blocks**, readable spacing (one-liners mostly avoided).
 * **Private state:** use **`#field`** for private members (prefer strictness over “defensive” code).
 * **Runtime strictness:** avoid optional chaining in hot paths; it’s OK only where the world may legitimately be absent (e.g., prefab assembly in `fitAsset` / `unfitAsset`).
 * **Events:** single signature
