@@ -76,11 +76,15 @@ test('quatNormalize returns unit length and does not mutate input', () => {
     assert.deepEqual(a, [2, 0, 0, 2]);
 });
 
-test('quatNormalizePositive: keeps unit +w by reference, flips -w, zero -> identity', () => {
-    // unit +w returns same reference
+test('quatNormalizePositive: allocating; keeps +w, flips -w, zero -> identity; does not mutate input', () => {
+    // unit +w returns a NEW array equal to input, original not mutated
     const u = [1, 0, 0, 0];
+    const copyU = u.slice();
     const r = quatNormalizePositive(u);
-    assert.equal(r, u);
+    assert.notEqual(r, u);
+    assert.deepEqual(u, copyU);
+    assert.ok(quatApprox(r, [1, 0, 0, 0]));
+    assert.ok(r[0] >= 0);
 
     // -identity flips to +identity (allow for -0 components)
     const negI = quatNormalizePositive([-1, 0, 0, 0]);
@@ -92,10 +96,12 @@ test('quatNormalizePositive: keeps unit +w by reference, flips -w, zero -> ident
     assert.ok(quatApprox(s, [1, 0, 0, 0]));
     assert.ok(s[0] >= 0);
 
-    // zero -> identity (handle -0)
-    const z = quatNormalizePositive([0, 0, 0, 0]);
-    assert.ok(quatApprox(z, [1, 0, 0, 0]));
-    assert.ok(z[0] >= 0);
+    // zero -> identity (handle -0) and returns NEW array
+    const z = [0, 0, 0, 0];
+    const z2 = quatNormalizePositive(z);
+    assert.notEqual(z2, z);
+    assert.ok(quatApprox(z2, [1, 0, 0, 0]));
+    assert.deepEqual(z, [0, 0, 0, 0]);
 });
 
 // ---------- multiplication ----------
