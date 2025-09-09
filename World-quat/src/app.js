@@ -15,7 +15,8 @@ import { BotSession } from "./player/botSession.js";
 import { InputManager } from "./input/inputManager.js";
 import { PlayerController } from "./controllers/playerController.js";
 import { CameraController } from "./controllers/cameraController.js";
-import { TrackingSystem } from "./systems/trackingSystem.js";
+import { TrackerAsset } from "./assets/trackerAsset.js";
+import { TrackerController } from "./controllers/trackerController.js";
 
 import { makeTransform } from "./math/transform.js";
 import { CameraAsset } from "./assets/cameraAsset.js";
@@ -70,10 +71,14 @@ export function createScene(canvas) {
     cube.addMount({ id: "head",  slot: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
     cube.addMount({ id: "handR", slot: "hardpoint", transform: makeTransform([0.7, 0.0, 0.4]) });
     cube.addMount({ id: "core", slot: "hardpoint", transform: makeTransform([0, 0, 0]) });
+    cube.addMount({ id: "brain", slot: "utility" });
 
     // Fit assets
     const headCam = new CameraAsset({ name: "HeadCam" });
     cube.fitAsset(headCam, "head");
+
+    const tracker = new TrackerAsset({ turnRate: 0.8 });
+    cube.fitAsset(tracker, "brain");
 
     const gun = new WeaponAsset({ fireRate: 5, magSize: 6 });
     gun.local.pos = [0.0, -0.12, 0.25];
@@ -108,7 +113,7 @@ export function createScene(canvas) {
    // register any pre-fitted assets here later
     world.addController(new PlayerController(cube,  inputMgr, TUNE));
     world.addController(new CameraController(camera, inputMgr, TUNE, player));
-    world.addSystem(new TrackingSystem(cube, camera, inputMgr, TUNE, player));
+    world.addController(new TrackerController(tracker, camera, inputMgr, player));
 
     // Create a bot-controlled cube
     const botShape = cubeShape; // reuse

@@ -42,6 +42,12 @@ export class MotorAsset extends Asset {
         this.intent.turn[2] += dr;
     }
 
+    addTurnRadians(dp = 0, dyaw = 0, dr = 0) {
+        this.intent.turnRad[0] += dp;
+        this.intent.turnRad[1] += dyaw;
+        this.intent.turnRad[2] += dr;
+    }
+
     zeroIntent() {
         this.intent.move[0] = this.intent.move[1] = this.intent.move[2] = 0;
         this.intent.turn[0] = this.intent.turn[1] = this.intent.turn[2] = 0;
@@ -107,9 +113,4 @@ export class MotorAsset extends Asset {
             this.zeroIntent();
         }
     }
-
-    // --- Private ---------------------------------------------------------
-
-
-    // Private fields (none besides inherited)
 }
