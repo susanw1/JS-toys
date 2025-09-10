@@ -1,5 +1,5 @@
 import { Entity } from "../core/entity.js";
-import { quatFromAxisAngle, quatMultiply, quatNormalizePositive } from "../math/quat.js";
+import { qaxis, qmul, qnormpos } from "../math/quat.js";
 
 export class Cube extends Entity {
     constructor(opts = {}) {
@@ -24,8 +24,8 @@ export class Cube extends Entity {
 
     // Example local-space spin helper (optional)
     spinLocal(axis, radians) {
-        const dq = quatFromAxisAngle(axis, radians);
-        this.rotation = quatNormalizePositive(quatMultiply(this.rotation, dq));
+        const dq = qaxis(axis, radians);
+        this.rotation = qnormpos(qmul(this.rotation, dq));
     }
 
     update(dt) {

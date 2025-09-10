@@ -1,4 +1,4 @@
-import { quatFromAxisAngle, quatMultiply, quatNormalizePositive, quatRotateVector } from "../math/quat.js";
+import { qaxis, qmul, qnormpos, qrot } from "../math/quat.js";
 import { vadd } from "../math/vec3.js";
 
 const VIEW_VECTORS = {
@@ -45,23 +45,23 @@ export class CameraController {
             const cam = this.camera;
             let q;
             if (this.fpsMode) {
-                const qYawWorld = quatFromAxisAngle([0, 1, 0], yaw);
-                q = quatMultiply(qYawWorld, cam.rotation);
-                const right = quatRotateVector(q, [-1, 0, 0]);
-                const qPitchRight = quatFromAxisAngle(right, pitch);
-                q = quatMultiply(qPitchRight, q);
+                const qYawWorld = qaxis([0, 1, 0], yaw);
+                q = qmul(qYawWorld, cam.rotation);
+                const right = qrot(q, [-1, 0, 0]);
+                const qPitchRight = qaxis(right, pitch);
+                q = qmul(qPitchRight, q);
             } else {
-                q = quatMultiply(cam.rotation, quatFromAxisAngle([0, 1, 0], yaw));
-                q = quatMultiply(q, quatFromAxisAngle([-1, 0, 0], pitch));
+                q = qmul(cam.rotation, qaxis([0, 1, 0], yaw));
+                q = qmul(q, qaxis([-1, 0, 0], pitch));
             }
-            cam.rotation = quatNormalizePositive(q);
+            cam.rotation = qnormpos(q);
         }
 
         // WASD/QE translation
         const step = this.tune.camMoveRate * dt;
         const vLocal = localMoveFromHeld(this.input.held, VIEW_VECTORS, step);
         if (vLocal[0] || vLocal[1] || vLocal[2]) {
-            const world = quatRotateVector(this.camera.rotation, vLocal);
+            const world = qrot(this.camera.rotation, vLocal);
             this.camera.position = vadd(this.camera.position, world);
         }
 

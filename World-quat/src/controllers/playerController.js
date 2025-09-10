@@ -1,4 +1,4 @@
-import { quatFromAxisAngle, quatMultiply, quatNormalizePositive, quatRotateVector } from "../math/quat.js";
+import { qaxis, qmul, qnormpos, qrot } from "../math/quat.js";
 import { vadd } from "../math/vec3.js";
 
 // Drives the possessed entity via a MotorAsset using keyboard input.

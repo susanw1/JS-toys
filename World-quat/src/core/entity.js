@@ -1,9 +1,9 @@
 import {
-    quatIdentity,
-    quatMultiply,
-    quatNormalizePositive,
-    quatFromAxisAngle,
-    quatRotateVector
+    qid,
+    qmul,
+    qnormpos,
+    qaxis,
+    qrot
 } from "../math/quat.js";
 import { vadd } from "../math/vec3.js";
 import { makeTransform } from "../math/transform.js";
@@ -82,7 +82,7 @@ export class Entity {
 
     // Rotate a local-space vector by this entity’s rotation (does not mutate).
     rotateVectorLocal(v3) {
-        return quatRotateVector(this.rotation, v3);
+        return qrot(this.rotation, v3);
     }
 
     // Convenience directions in world space.
@@ -114,14 +114,14 @@ export class Entity {
 
     // Rotate around a local axis by angle (right-multiply).
     rotateAroundLocal(axisLocal, angle) {
-        const dq = quatFromAxisAngle(axisLocal, angle);
-        this.rotation = quatNormalizePositive(quatMultiply(this.rotation, dq));
+        const dq = qaxis(axisLocal, angle);
+        this.rotation = qnormpos(qmul(this.rotation, dq));
     }
 
     // Rotate around a world axis by angle (pre-multiply).
     rotateAroundWorld(axisWorld, angle) {
-        const dq = quatFromAxisAngle(axisWorld, angle);
-        this.rotation = quatNormalizePositive(quatMultiply(dq, this.rotation));
+        const dq = qaxis(axisWorld, angle);
+        this.rotation = qnormpos(qmul(dq, this.rotation));
     }
 
     // --- Mounts & Assets (now delegated to root) ------------------------

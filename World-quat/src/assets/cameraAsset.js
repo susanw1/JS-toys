@@ -1,6 +1,6 @@
 import { Asset } from "./asset.js";
 import { CAP } from "../core/caps.js";
-import { quatNormalizePositive } from "../math/quat.js";
+import { qnormpos } from "../math/quat.js";
 
 export class CameraAsset extends Asset {
     constructor(opts = {}) {
@@ -59,7 +59,7 @@ export class CameraAsset extends Asset {
             this.#viewRot[1] = this.#viewRot[1] + (rx - this.#viewRot[1]) * a;
             this.#viewRot[2] = this.#viewRot[2] + (ry - this.#viewRot[2]) * a;
             this.#viewRot[3] = this.#viewRot[3] + (rz - this.#viewRot[3]) * a;
-            this.#viewRot = quatNormalizePositive(this.#viewRot);
+            this.#viewRot = qnormpos(this.#viewRot);
         } else {
             this.#viewRot[0] = rw; this.#viewRot[1] = rx; this.#viewRot[2] = ry; this.#viewRot[3] = rz;
         }

@@ -1,4 +1,4 @@
-import { quatFromAxisAngle, quatMultiply, quatNormalizePositive, quatRotateVector } from "../math/quat.js";
+import { qaxis, qmul, qnormpos, qrot } from "../math/quat.js";
 import { makeTransform, composeTransform } from "../math/transform.js";
 import { makeId } from "../core/id.js";
 import { EV } from "../core/events.js";
@@ -184,15 +184,15 @@ export class Asset {
     }
 
     translateLocal(v3) {
-        const w = quatRotateVector(this.local.rot, v3);
+        const w = qrot(this.local.rot, v3);
         this.local.pos = [ this.local.pos[0] + w[0],
                            this.local.pos[1] + w[1],
                            this.local.pos[2] + w[2] ];
     }
 
     rotateAroundLocal(axisLocal, angle) {
-        const dq = quatFromAxisAngle(axisLocal, angle);
-        this.local.rot = quatNormalizePositive(quatMultiply(this.local.rot, dq));
+        const dq = qaxis(axisLocal, angle);
+        this.local.rot = qnormpos(qmul(this.local.rot, dq));
     }
 }
 

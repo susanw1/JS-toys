@@ -25,7 +25,7 @@ import { MotorAsset } from "./assets/motorAsset.js";
 
 import { EV } from "./core/events.js";
 
-import { quatFromAxisAngle, quatNormalizePositive } from "./math/quat.js";
+import { qaxis, qnormpos } from "./math/quat.js";
 import { printTree } from "./debug/printTree.js";
 
 // ---------- Tunables ----------
@@ -57,7 +57,7 @@ export function createScene(canvas) {
     cube.addMount({ id: "top", slot: "hardpoint", transform: makeTransform([0, 0.9, 0]) });
     const dummy = new Asset({ kind: "dummy", mesh: cubeShape.scaledMesh(0.5, 1, 0.5) }); // reuse cube mesh to see it draw
     dummy.local.pos = [0, 0.5, 0]; // offset above
-    dummy.local.rot = quatFromAxisAngle([1, 0, 0], Math.PI / 8);
+    dummy.local.rot = qaxis([1, 0, 0], Math.PI / 8);
     cube.fitAsset(dummy, "top");
 
     const camera = new Camera({ position: [0, 0, 0], zoom: 600, near: 0.01 });

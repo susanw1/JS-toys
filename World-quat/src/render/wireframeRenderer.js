@@ -1,4 +1,4 @@
-import { quatConjugate, quatRotateVector } from "../math/quat.js";
+import { qconj, qrot } from "../math/quat.js";
 import { transformPoint, composeTransform } from "../math/transform.js";
 
 export class WireframeRenderer {
