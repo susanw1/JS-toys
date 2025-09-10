@@ -1,15 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { approx, vecApprox } from '../test-helpers/math.js';
+
 import {
   vadd, vaddp, vsub, vsubp, vscale, vscalep,
   vcross, vcrossp, vdot, vlen, vnorm, vnormp,
   clamp, clampUnit
 } from '../../src/math/vec3.js';
 
-const EPS = 1e-9;
-const approx = (a, b, e = EPS) => Math.abs(a - b) <= e;
-const vecApprox = (a, b, e = EPS) =>
-  approx(a[0], b[0], e) && approx(a[1], b[1], e) && approx(a[2], b[2], e);
+
 
 test('vadd allocates and does not mutate inputs', () => {
   const a = [1, 2, 3], b = [4, 5, 6];

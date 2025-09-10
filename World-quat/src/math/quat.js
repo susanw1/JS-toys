@@ -2,13 +2,12 @@
  * Quaternion utilities using [w, x, y, z].
  *
  * House rules:
- * - Functions ending with `p` mutate their first argument in-place and return it.
- * - Non-`p` variants allocate by cloning the first argument (via `.slice()`) and
+ * - Functions ending with `p` mutate their first argument in-place and return it, others return a fresh instance.
+ * - Non-`p` variants generally allocate by cloning the first argument (via `.slice()`) and
  *   then delegate to the in-place version.
  * - Vectors are [x, y, z]. Angles are radians.
  *
- * This module exposes short names (qmul, qmulp, qnorm, qnormp, ...). The
- * previous long-form API is kept as shims for compatibility.
+ * This module exposes short names (qmul, qmulp, qnorm, qnormp, ...).
  */
 
 // -------------------------------------------------------------
@@ -115,9 +114,8 @@ export function qnormposp(q) {
         q[0] = 1; q[1] = 0; q[2] = 0; q[3] = 0;
         return q;
     }
-    const inv = 1 / Math.sqrt(n2);
+    const inv = (q[0] >= 0 ? 1 : -1) / Math.sqrt(n2);
     q[0] *= inv; q[1] *= inv; q[2] *= inv; q[3] *= inv;
-    if (q[0] < 0) { q[0] = -q[0]; q[1] = -q[1]; q[2] = -q[2]; q[3] = -q[3]; }
     return q;
 }
 
@@ -140,7 +138,7 @@ export function qinvp(q) {
     if (n2 === 0) return q;
     // conj / n2
     q[1] = -q[1]; q[2] = -q[2]; q[3] = -q[3];
-    const inv = 1 / n2;
+    const inv = 1 / n2 ;
     q[0] *= inv; q[1] *= inv; q[2] *= inv; q[3] *= inv;
     return q;
 }
@@ -166,8 +164,8 @@ export function qinv(q) {
  */
 export function qaxis(axis, angle) {
     const ax = axis[0], ay = axis[1], az = axis[2];
-    const L = Math.hypot(ax, ay, az) || 1;
-    const nx = ax / L, ny = ay / L, nz = az / L;
+    const len = Math.hypot(ax, ay, az) || 1;
+    const nx = ax / len, ny = ay / len, nz = az / len;
     const s = Math.sin(angle / 2), c = Math.cos(angle / 2);
     return [c, nx * s, ny * s, nz * s];
 }

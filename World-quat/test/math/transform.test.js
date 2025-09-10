@@ -1,30 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { makeTransform, composeTransform, transformPoint } from '../../src/math/transform.js';
 import { qaxis, qmul, qrot, qnormpos, QI } from '../../src/math/quat.js';
+import { approx, vecApprox, quatApprox } from '../test-helpers/math.js';
+
+import { makeTransform, composeTransform, transformPoint } from '../../src/math/transform.js';
 
 // ---------- numerics & helpers ----------
-const EPS = 1e-9;
-const approx = (a, b, e = EPS) => Math.abs(a - b) <= e;
-const vecApprox = (a, b, e = EPS) =>
-    approx(a[0], b[0], e) && approx(a[1], b[1], e) && approx(a[2], b[2], e);
 const qlen = (q) => Math.hypot(q[0], q[1], q[2], q[3]);
-function quatApprox(a, b, e = EPS) {
-    // Compare up to sign
-    const direct =
-        approx(a[0], b[0], e) &&
-        approx(a[1], b[1], e) &&
-        approx(a[2], b[2], e) &&
-        approx(a[3], b[3], e);
-    if (direct) return true;
-    return (
-        approx(a[0], -b[0], e) &&
-        approx(a[1], -b[1], e) &&
-        approx(a[2], -b[2], e) &&
-        approx(a[3], -b[3], e)
-    );
-}
 
 // ---------- makeTransform ----------
 test('makeTransform clones inputs (no aliasing)', () => {

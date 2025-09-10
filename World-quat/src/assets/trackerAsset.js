@@ -1,5 +1,6 @@
 // src/assets/trackerAsset.js
 import { Asset } from "./asset.js";
+import { vsub, clamp } from "../math/vec3.js";
 import { qconj, qrot } from "../math/quat.js";
 
 export class TrackerAsset extends Asset {
@@ -42,13 +43,11 @@ export class TrackerAsset extends Asset {
         }
 
         // Vector to target in world
-        const dx = this.targetPoint[0] - host.position[0];
-        const dy = this.targetPoint[1] - host.position[1];
-        const dz = this.targetPoint[2] - host.position[2];
+        const targetInWorld = vsub(this.targetPoint, host.position);
 
         // Bring into host local space: vL = R^T * (target - pos)
         const qInv = qconj(host.rotation);
-        const vL = qrot(qInv, [dx, dy, dz]);
+        const vL = qrot(qInv, targetInWorld);
 
         // Yaw error (around +Y), pitch error (around +X)
         // Forward is +Z; yaw left/right; pitch up/down (right-handed)
@@ -65,16 +64,10 @@ export class TrackerAsset extends Asset {
 
         // Clamp per frame by rate
         const maxStep = this.turnRate * dt;
-        const dyaw   = Math.max(-maxStep, Math.min(maxStep, y));
-        const dpitch = Math.max(-maxStep, Math.min(maxStep, p));
+        const dyaw   = clamp(y, -maxStep, maxStep);
+        const dpitch = clamp(p, -maxStep, maxStep);
 
         // Ask motor to turn by exact radians this frame
-        if (typeof motor.addTurnRadians === "function") {
-            motor.addTurnRadians(dpitch, dyaw, 0);
-        } else {
-            // Fallback: unitless API (kept for compatibility)
-            const u = (this.turnRate > 0) ? (1 / this.turnRate) : 1;
-            motor.addTurn(dpitch * u, dyaw * u, 0);
-        }
+        motor.addTurnRadians(dpitch, dyaw, 0);
     }
 }

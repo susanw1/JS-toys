@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+
+import { approx, vecApprox, quatApprox } from '../test-helpers/math.js';
 import {
     QI,
     qid,
@@ -15,27 +17,7 @@ import {
 // Representation: [w, x, y, z]
 
 // ---------- numerics & helpers ----------
-const EPS = 1e-9;
-const approx = (a, b, e = EPS) => Math.abs(a - b) <= e;
-const vecApprox = (a, b, e = EPS) =>
-    approx(a[0], b[0], e) && approx(a[1], b[1], e) && approx(a[2], b[2], e);
 const qlen = (q) => Math.hypot(q[0], q[1], q[2], q[3]);
-
-// Compare quaternions up to sign (q ~ -q)
-function quatApprox(a, b, e = EPS) {
-    const direct =
-        approx(a[0], b[0], e) &&
-        approx(a[1], b[1], e) &&
-        approx(a[2], b[2], e) &&
-        approx(a[3], b[3], e);
-    if (direct) return true;
-    return (
-        approx(a[0], -b[0], e) &&
-        approx(a[1], -b[1], e) &&
-        approx(a[2], -b[2], e) &&
-        approx(a[3], -b[3], e)
-    );
-}
 
 const I = Object.freeze([1, 0, 0, 0]);
 

@@ -1,7 +1,7 @@
 // src/assets/motorAsset.js
 import { Asset } from "./asset.js";
 import { CAP } from "../core/caps.js";
-import { vadd, vscale } from "../math/vec3.js";
+import { vaddp, vscale, vzerop } from "../math/vec3.js";
 
 export class MotorAsset extends Asset {
     constructor(opts = {}) {
@@ -52,9 +52,9 @@ export class MotorAsset extends Asset {
 
     zeroIntent() {
         const i = this.intent;
-        i.move[0] = i.move[1] = i.move[2] = 0;
-        i.turn[0] = i.turn[1] = i.turn[2] = 0;
-        i.turnRad[0] = i.turnRad[1] = i.turnRad[2] = 0;
+        vzerop(i.move);
+        vzerop(i.turn);
+        vzerop(i.turnRad);
     }
 
     update(dt) {
@@ -70,7 +70,7 @@ export class MotorAsset extends Asset {
             const step = vscale(mv, this.linearSpeed * dt);
             if (this.space === "world") {
                 // move in world axes
-                hostEntity.position = vadd(hostEntity.position, step);
+                vaddp(hostEntity.position, step);
             } else {
                 // move in local axes
                 hostEntity.translateLocal(step);

@@ -1,8 +1,12 @@
 import { Asset } from "./asset.js";
 import { CAP } from "../core/caps.js";
-import { qnormpos } from "../math/quat.js";
+import { qnormposp } from "../math/quat.js";
 
 export class CameraAsset extends Asset {
+    #viewPos;
+    #viewRot;
+    #shakeT;
+
     constructor(opts = {}) {
         super({ kind: "camera", ...opts });
 
@@ -59,7 +63,7 @@ export class CameraAsset extends Asset {
             this.#viewRot[1] = this.#viewRot[1] + (rx - this.#viewRot[1]) * a;
             this.#viewRot[2] = this.#viewRot[2] + (ry - this.#viewRot[2]) * a;
             this.#viewRot[3] = this.#viewRot[3] + (rz - this.#viewRot[3]) * a;
-            this.#viewRot = qnormpos(this.#viewRot);
+            qnormposp(this.#viewRot);
         } else {
             this.#viewRot[0] = rw; this.#viewRot[1] = rx; this.#viewRot[2] = ry; this.#viewRot[3] = rz;
         }
@@ -84,10 +88,6 @@ export class CameraAsset extends Asset {
         }
         return this.worldTransform();
     }
-
-    #viewPos;
-    #viewRot;
-    #shakeT;
 }
 
 // Exp smoothing helper: tau seconds to ~63% response

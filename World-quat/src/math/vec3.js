@@ -1,5 +1,5 @@
 /**
- * Conventions:
+ * House rules:
  * - Functions ending with `p` mutate their first argument in-place.
  * - Functions without `p` return a new vec3 and delegate to the in-place version
  *   after cloning the first argument.
