@@ -135,7 +135,7 @@ export class Asset {
         const a = m.asset;
         m.asset = null;
         a.onUnfitted();
-        this.world?.unregisterAssetTree?.(a);
+        this.world?.unregisterAssetTree(a);
         this.world?.emit(EV.asset_unfitted, { host: this, mountId, asset: a });
         return a;
     }

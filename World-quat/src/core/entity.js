@@ -10,9 +10,11 @@ import { makeTransform } from "../math/transform.js";
 import { RootAsset } from "../assets/rootAsset.js";
 
 export class Entity {
+    #root;
+
     constructor(opts = {}) {
-        this.position = opts.position ? opts.position.slice() : [0, 0, 0];
-        this.rotation = opts.rotation ? opts.rotation.slice() : [1, 0, 0, 0]; // quat
+        // permanent root asset that owns all mounts/actions/capabilities
+        this.#root = new RootAsset(this, opts);
 
         // Generic knobs & runtime state
         this.params = opts.params || {};
@@ -22,19 +24,32 @@ export class Entity {
         this.kind = opts.kind || "entity";
         this.alive = true;
 
-        // World backref (set by World.add)
-        this.world = null;
         this.ownerId = (opts.ownerId ?? null);
 
-        // permanent root asset that owns all mounts/actions/capabilities
-        this.root = new RootAsset(this);
         // Optional shape for render/collision
-        this.root.mesh = opts.shape || null;
+        this.#root.mesh = opts.shape || null;
+    }
 
-        // Back-compat alias: expose mounts via getter so existing code still works.
-        Object.defineProperty(this, "mounts", {
-            get: () => this.root.mounts
-        });
+    set position(pos) {
+        this.#root.local.pos = pos;
+    }
+    get position() {
+        return this.#root.local.pos;
+    }
+    set rotation(rot) {
+        this.#root.local.rot = rot;
+    }
+    get rotation() {
+        return this.#root.local.rot;
+    }
+    get mounts() {
+        return this.#root.local.mounts;
+    }
+    get world() {
+        return this.#root.world;
+    }
+    get root() {
+        return this.#root;
     }
 
     update(dt) {
@@ -44,8 +59,8 @@ export class Entity {
     // Visit all assets under this entity (starting at the root asset).
     // visitor(asset, { parent, mountId, depth })
     iterateAssets(visitor) {
-        if (this.root) {
-            this.root.iterate(visitor, null, null, 0);
+        if (this.#root) {
+            this.#root.iterate(visitor, null, null, 0);
         }
     }
 
@@ -126,7 +141,7 @@ export class Entity {
 
     // --- Mounts & Assets (now delegated to root) ------------------------
     addMount(cfg) {
-        return this.root.addMount(cfg);
+        return this.#root.addMount(cfg);
     }
 
     setOwner(playerOrId) {
@@ -134,11 +149,11 @@ export class Entity {
     }
 
     fitAsset(asset, mountId) {
-        const fitted = this.root.fitAsset(asset, mountId);
+        const fitted = this.#root.fitAsset(asset, mountId);
         return fitted;
     }
 
     unfitAsset(mountId) {
-        return this.root.unfitAsset(mountId);
+        return this.#root.unfitAsset(mountId);
     }
 }

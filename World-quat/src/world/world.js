@@ -19,11 +19,8 @@ export class World {
 
     add(entity) {
         this.entities.push(entity);
-        entity.world = this;
         // Attach the entity’s asset tree to this world.
-        if (entity.root) {
-            this.registerAssetTree(entity.root);
-        }
+        this.registerAssetTree(entity.root);
         return entity;
     }
 
@@ -33,9 +30,7 @@ export class World {
             this.entities.splice(i, 1);
         }
         // Detach the entity’s asset tree from this world.
-        if (entity.root) {
-            this.unregisterAssetTree(entity.root);
-        }
+        this.unregisterAssetTree(entity.root);
         entity.world = null;
     }
 
