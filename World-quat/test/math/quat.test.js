@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { approx, vecApprox, quatApprox } from '../test-helpers/math.js';
+import { vqrot } from '../../src/math/vec3.js';
+
 import {
     QI,
     qid,
@@ -9,7 +11,6 @@ import {
     qnormpos,
     qmul,
     qaxis,
-    qrot,
     qconj,
     qmat,
 } from '../../src/math/quat.js';
@@ -136,21 +137,6 @@ test('qaxis matches closed form', () => {
     assert.ok(quatApprox(q, expected, 1e-8));
 });
 
-// ---------- rotate vector ----------
-
-test('qrot: 90° about Z maps X->Y', () => {
-    const q = qaxis([0, 0, 1], Math.PI / 2);
-    const v = [1, 0, 0];
-    const expected = [0, 1, 0];
-    assert.ok(vecApprox(qrot(q, v), expected, 1e-8));
-});
-
-
-test('qrot: identity does nothing', () => {
-    const v = [0.3, -4.2, 0.7];
-    assert.ok(vecApprox(qrot(I, v), v));
-});
-
 // ---------- quatToMatrix ----------
 
 test('qmat: identity -> identity matrix', () => {
@@ -168,7 +154,7 @@ test('qmat: rotates vectors equivalently to quatRotateVector', () => {
     const m = qmat(q);
     const v = [1, 0, 0];
     const mv = matMulVec3(m, v);
-    const qv = qrot(q, v);
+    const qv = vqrot(v, q);
     assert.ok(vecApprox(mv, qv, 1e-8));
 });
 

@@ -2,10 +2,9 @@ import {
     qid,
     qmul,
     qnormpos,
-    qaxis,
-    qrot
+    qaxis
 } from "../math/quat.js";
-import { vadd } from "../math/vec3.js";
+import { vadd, vqrot } from "../math/vec3.js";
 import { makeTransform } from "../math/transform.js";
 import { RootAsset } from "../assets/rootAsset.js";
 
@@ -97,7 +96,7 @@ export class Entity {
 
     // Rotate a local-space vector by this entity’s rotation (does not mutate).
     rotateVectorLocal(v3) {
-        return qrot(this.rotation, v3);
+        return vqrot(v3, this.rotation);
     }
 
     // Convenience directions in world space.

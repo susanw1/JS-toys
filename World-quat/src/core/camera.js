@@ -1,6 +1,6 @@
 import { Entity } from "./entity.js";
-import { qconj, qrot } from "../math/quat.js";
-import { vsub } from "../math/vec3.js";
+import { qconj } from "../math/quat.js";
+import { vsub, vqrot } from "../math/vec3.js";
 
 export class Camera extends Entity {
     constructor(opts = {}) {
@@ -16,7 +16,7 @@ export class Camera extends Entity {
         const camPos = this.position.slice();
         return (p) => {
             const d = vsub(p, camPos);
-            return qrot(qInv, d);
+            return vqrot(d, qInv);
         };
     }
 }

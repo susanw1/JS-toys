@@ -39,7 +39,7 @@ A tiny, clean **3D wireframe sandbox** that can grow into a game:
     * **Integrate:** `update(dt)` applies movement/rotation; emits **result** events.
     * **Post:** read final transforms; consume events; copy camera pose; render.
 * **Transforms:** use **`worldTransform()`** for composed poses; renderer does near-plane clipping; **hoist** `qInv` outside loops.
-* **Vec3 helpers:** prefer `vadd/vsub/vscale` over hand-rolled component math; prefer quaternion rotation (`qrot/qrotp`) over ad-hoc 3×3 matrices.
+* **Vec3 helpers:** prefer `vadd/vsub/vscale` over hand-rolled component math; prefer quaternion rotation (`vqrot/vqrotp`) over ad-hoc 3×3 matrices.
 * **Behavior over flags:** prefer small assets (Tracker, Motor) to booleans sprinkled across systems.
 * **Small diffs:** keep patches minimal and local; preserve file layout, variable names, comments and style to keep git diffs tidy.
 
@@ -58,8 +58,8 @@ Across `quat` and `vec3`, the pattern is:
 * **In-place**: `namep(...)` mutates the **first** argument and returns it.
 
 Examples:
-* Quats: `qmul/qmulp`, `qnormpos/qnormposp`, `qconj/qconjp`, `qinv/qinvp`, `qrot/qrotp` (mutates the **vector**), `qmat/qmatp`.
-* Vec3: `vadd/vaddp`, `vsub/vsubp`, `vscale/vscalep`, `vnorm/vnormp`, etc.
+* Quats: `qmul/qmulp`, `qnormpos/qnormposp`, `qconj/qconjp`, `qinv/qinvp`, `qmat/qmatp`.
+* Vec3: `vadd/vaddp`, `vsub/vsubp`, `vscale/vscalep`, `vnorm/vnormp`, `vqrot/vqrotp` etc.
 
 Allocating shims are generally thin wrappers where possible, e.g. `qnormpos(q)` → `return qnormposp(q.slice());`.
 
@@ -68,10 +68,10 @@ Allocating shims are generally thin wrappers where possible, e.g. `qnormpos(q)` 
 `worldTransform()` composes **parent ∘ mount ∘ local**:
 
 ```js
-rot = qnormposp( qmul(parent.rot, qmul(mount.rot, local.rot)) )
+rot = qnormposp(qmul(parent.rot, qmul(mount.rot, local.rot)) )
 pos = parent.pos
-    + qrot(parent.rot, mount.pos)
-    + qrotp(qmul(parent.rot, mount.rot), local.pos)
+    + vqrot(mount.pos, parent.rot)
+    + vqrot(local.pos, qmul(parent.rot, mount.rot));
 ```
 
 Fixed-number contract examples used in tests:
@@ -81,8 +81,8 @@ Fixed-number contract examples used in tests:
 
 ### Quick API reference (short names)
 
-* **Quat:** `qid`, `QI`, `qaxis`, `qmul/qmulp`, `qnormpos/qnormposp`, `qconj/qconjp`, `qinv/qinvp`, `qrot/qrotp`, `qmat/qmatp`.
-* **Vec3:** `vadd/vaddp`, `vsub/vsubp`, `vscale/vscalep`, `vnorm/vnormp`, …
+* **Quat:** `qid`, `QI`, `qaxis`, `qmul/qmulp`, `qnormpos/qnormposp`, `qconj/qconjp`, `qinv/qinvp`, `qmat/qmatp`.
+* **Vec3:** `vadd/vaddp`, `vsub/vsubp`, `vscale/vscalep`, `vnorm/vnormp`, `vqrot/vqrotp`
 * **Transforms:** `makeTransform`, `composeTransform`, `transformPoint`.
 
 ---
@@ -170,7 +170,7 @@ GitHub Actions setup (cache at repo root):
 
 4. **Camera follow = pure read**
 
-    * Ensure `PlayerCameraSystem` runs in **post** and **always copies** from `activeCameraAsset.worldTransform()` (camera “feel” off for now).
+    * Ensure `PlayerCameraSystem` runs in **post** and **always copies** from `activeCameraAsset.worldTransform()`.
 
 5. **Projectiles & damage (vertical slice)**
 

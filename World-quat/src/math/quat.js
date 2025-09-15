@@ -202,38 +202,3 @@ export function qmat(q) {
     const m = [ [0,0,0], [0,0,0], [0,0,0] ];
     return qmatp(m, q);
 }
-
-// -------------------------------------------------------------
-// Rotate vectors
-// -------------------------------------------------------------
-
-/**
- * Rotate a vec3 in-place: v = rotate(q, v).
- * Uses the optimized cross-product form.
- * @param {number[]} v - Vector [x,y,z]; mutated.
- * @param {number[]} q - Quaternion [w,x,y,z].
- * @returns {number[]} The mutated vector `v`.
- */
-export function qrotp(v, q) {
-    const w = q[0], x = q[1], y = q[2], z = q[3];
-    const vx = v[0], vy = v[1], vz = v[2];
-    // t = 2 * (u × v)
-    const tx = 2 * (y * vz - z * vy);
-    const ty = 2 * (z * vx - x * vz);
-    const tz = 2 * (x * vy - y * vx);
-    // v' = v + w*t + u × t
-    v[0] = vx + w * tx + (y * tz - z * ty);
-    v[1] = vy + w * ty + (z * tx - x * tz);
-    v[2] = vz + w * tz + (x * ty - y * tx);
-    return v;
-}
-
-/**
- * Rotate a vec3 (allocating).
- * @param {number[]} q - Quaternion [w,x,y,z].
- * @param {number[]} v - Vector [x,y,z].
- * @returns {number[]} New rotated vector.
- */
-export function qrot(q, v) {
-    return qrotp(v.slice(), q);
-}

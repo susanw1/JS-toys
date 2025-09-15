@@ -1,5 +1,5 @@
-import { qaxis, qmulp, qnormposp, qrot } from "../math/quat.js";
-import { vaddp } from "../math/vec3.js";
+import { qaxis, qmulp, qnormposp } from "../math/quat.js";
+import { vaddp, vqrot } from "../math/vec3.js";
 import { makeTransform, composeTransform } from "../math/transform.js";
 import { makeId } from "../core/id.js";
 import { EV } from "../core/events.js";
@@ -185,7 +185,7 @@ export class Asset {
     }
 
     translateLocal(v3) {
-        const w = qrot(this.local.rot, v3);
+        const w = vqrot(v3, this.local.rot);
         vaddp(this.local.pos, w);
     }
 

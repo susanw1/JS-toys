@@ -1,7 +1,7 @@
 // src/assets/trackerAsset.js
 import { Asset } from "./asset.js";
-import { vsub, clamp } from "../math/vec3.js";
-import { qconj, qrot } from "../math/quat.js";
+import { vsub, vqrot, clamp } from "../math/vec3.js";
+import { qconj } from "../math/quat.js";
 
 export class TrackerAsset extends Asset {
     constructor(opts = {}) {
@@ -47,7 +47,7 @@ export class TrackerAsset extends Asset {
 
         // Bring into host local space: vL = R^T * (target - pos)
         const qInv = qconj(host.rotation);
-        const vL = qrot(qInv, targetInWorld);
+        const vL = vqrot(targetInWorld, qInv);
 
         // Yaw error (around +Y), pitch error (around +X)
         // Forward is +Z; yaw left/right; pitch up/down (right-handed)

@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { qaxis, qmul, qrot, qnormpos, QI } from '../../src/math/quat.js';
+import { qaxis, qmul, qnormpos, QI } from '../../src/math/quat.js';
+import { vqrot } from '../../src/math/vec3.js';
 import { approx, vecApprox, quatApprox } from '../test-helpers/math.js';
 
 import { makeTransform, composeTransform, transformPoint } from '../../src/math/transform.js';
@@ -53,7 +54,7 @@ test('composeTransform with local rotation (Y 90°)', () => {
     // Manual expected
     const expectedRot = qnormpos(qmul(parent.rot, local.rot));
     const expectedPos = (() => {
-        const off = qrot(parent.rot, local.pos);
+        const off = vqrot(local.pos, parent.rot);
         return [off[0] + parent.pos[0], off[1] + parent.pos[1], off[2] + parent.pos[2]];
     })();
 

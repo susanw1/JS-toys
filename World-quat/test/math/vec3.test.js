@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { approx, vecApprox } from '../test-helpers/math.js';
 
+import { QI, qaxis } from '../../src/math/quat.js';
+
 import {
   vadd, vaddp, vsub, vsubp, vscale, vscalep,
-  vcross, vcrossp, vdot, vlen, vnorm, vnormp,
+  vcross, vcrossp, vdot, vlen, vnorm, vnormp, vqrot,
   clamp, clampUnit
 } from '../../src/math/vec3.js';
 
@@ -70,4 +72,19 @@ test('clamp / clampUnit', () => {
   assert.equal(clamp(2, 0, 3), 2);
   assert.equal(clampUnit(2), 1);
   assert.equal(clampUnit(-7), -1);
+});
+
+// ---------- rotate vector ----------
+
+test('vqrot: 90° about Z maps X->Y', () => {
+    const q = qaxis([0, 0, 1], Math.PI / 2);
+    const v = [1, 0, 0];
+    const expected = [0, 1, 0];
+    assert.ok(vecApprox(vqrot(v, q), expected, 1e-8));
+});
+
+
+test('vqrot: identity does nothing', () => {
+    const v = [0.3, -4.2, 0.7];
+    assert.ok(vecApprox(vqrot(v, QI), v));
 });

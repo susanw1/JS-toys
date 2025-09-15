@@ -1,5 +1,5 @@
-import { qaxis, qmul, qnormpos, qrot } from "../math/quat.js";
-import { vadd } from "../math/vec3.js";
+import { qaxis, qmul, qnormpos } from "../math/quat.js";
+import { vadd, vqrot } from "../math/vec3.js";
 
 // Drives the possessed entity via a MotorAsset using keyboard input.
 // Movement is in the entity's LOCAL frame (forward +Z, right +X, up +Y).

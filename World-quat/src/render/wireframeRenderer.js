@@ -1,4 +1,5 @@
-import { qconj, qrot } from "../math/quat.js";
+import { qconj } from "../math/quat.js";
+import { vqrot } from "../math/vec3.js";
 import { transformPoint, composeTransform } from "../math/transform.js";
 
 export class WireframeRenderer {

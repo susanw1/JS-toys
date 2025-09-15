@@ -1,5 +1,5 @@
-import { qaxis, qmul, qnormpos, qrot } from "../math/quat.js";
-import { vadd } from "../math/vec3.js";
+import { qaxis, qmul, qnormpos } from "../math/quat.js";
+import { vadd, vqrot } from "../math/vec3.js";
 
 const VIEW_VECTORS = {
     KeyW: [ 0,  0,  1],
@@ -47,7 +47,7 @@ export class CameraController {
             if (this.fpsMode) {
                 const qYawWorld = qaxis([0, 1, 0], yaw);
                 q = qmul(qYawWorld, cam.rotation);
-                const right = qrot(q, [-1, 0, 0]);
+                const right = vqrot([-1, 0, 0], q);
                 const qPitchRight = qaxis(right, pitch);
                 q = qmul(qPitchRight, q);
             } else {
@@ -61,7 +61,7 @@ export class CameraController {
         const step = this.tune.camMoveRate * dt;
         const vLocal = localMoveFromHeld(this.input.held, VIEW_VECTORS, step);
         if (vLocal[0] || vLocal[1] || vLocal[2]) {
-            const world = qrot(this.camera.rotation, vLocal);
+            const world = vqrot(vLocal, this.camera.rotation);
             this.camera.position = vadd(this.camera.position, world);
         }
 
