@@ -16,7 +16,7 @@ export class Asset {
         // Host + mounting
         this.host = null;               // Entity or Asset
         this.mountId = null;            // id string of the mount on host
-        this.mounts = {};               // id -> { id, category, transform, accepts?, asset: Asset|null }
+        this.mounts = {};               // id -> { id, slot, transform, accepts?, asset: Asset|null }
     }
 
     // ---------- Capabilities / actions ----------

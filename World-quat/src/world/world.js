@@ -142,10 +142,10 @@ export class World {
             this.actionMap.process(input);
         }
         for (const c of this.controllers) {
-            c.step?.(dt);
+            c.step(dt);
         }
         for (const s of this.preSystems) {
-            s.step?.(dt);
+            s.step(dt);
         }
         this.update(dt);
 

@@ -34,10 +34,11 @@ export class PlayerCameraSystem {
             return;
         }
 
-        const Tw = active.worldTransform();
+//        const tw = active.getViewTransform();
+        const tw = active.worldTransform();
 
-        renderCamera.position = Tw.pos.slice();
-        renderCamera.rotation = Tw.rot.slice();
+        renderCamera.position = tw.pos.slice();
+        renderCamera.rotation = tw.rot.slice();
 
         if (active.zoom != null) {
             renderCamera.zoom = active.zoom;

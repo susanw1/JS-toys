@@ -160,7 +160,6 @@ GitHub Actions setup (cache at repo root):
 2. **Tracking → intents (asset-based)**
 
     * Implement **`TrackerAsset`** to compute yaw/pitch error vs a world point and call `motor.addTurnRadians(...)`.
-    * Remove the old `TrackingSystem`.
     * Ensure it **doesn’t track self** (when viewing from a camera mounted on the same host).
 
 3. **Motor options**
@@ -205,7 +204,7 @@ GitHub Actions setup (cache at repo root):
   Orchestrates **pre → integrate → post**; owns `preSystems`/`postSystems`, controllers, entities; **registers/unregisters asset trees**; sets/clears asset `#world`; maintains **capability indexes**; emits & drains events.
 
 * **`assets/asset.js`** + ****`assets/rootAsset.js`**** *(pivotal)*
-  Base asset with **mounts**, `fitAsset`/`unfitAsset`, `worldTransform()`, **private `#world`** (managed by World), `update(dt)`. Backbone for modular behavior.
+  Base asset with **mounts**, `fitAsset`/`unfitAsset`, `worldTransform()`, **private `#world`** (managed by World, only modified by World) on fit/unfit, `update(dt)`. Backbone for modular behavior.
 
 * **`assets/motorAsset.js`** *(pivotal)*
   Holds **intents** (`move`, `turn`, `turnRad`) and applies them in integrate; supports **local/world** space and optional **world-up yaw**. Uses `vscale`/`vadd`.
