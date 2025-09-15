@@ -104,10 +104,10 @@ Fixed-number contract examples used in tests:
 
 ## Performance guidelines
 
-* Prefer **in-place** ops on hot paths: `qmulp`, `qnormposp`, `qrotp`, `vaddp`, etc.
+* Prefer **in-place** ops on hot paths: `qmulp`, `qnormposp`, `vqrotp`, `vaddp`, etc.
 * It’s fine to accept a **small, short-lived** allocation when it improves clarity, e.g.:
   ```js
-  const w = qrot(q, v);    // alloc vec3 for readability
+  const w = vqrot(v, q);    // alloc vec3 for readability
   vaddp(pos, w);           // mutate destination in place
   ```
 * Reuse buffers naturally (e.g., `qmatp(reusedM, q)` if you already hold a matrix).

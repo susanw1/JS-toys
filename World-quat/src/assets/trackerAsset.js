@@ -1,4 +1,3 @@
-// src/assets/trackerAsset.js
 import { Asset } from "./asset.js";
 import { vsub, vqrot, clamp } from "../math/vec3.js";
 import { qconj } from "../math/quat.js";
