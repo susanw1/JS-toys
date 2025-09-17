@@ -69,9 +69,9 @@ test('composeTransform respects point transformation composition', () => {
     const v = [2, -1, 4];
 
     const PL = composeTransform(P, L);
-    const left = transformPoint(PL, v);
+    const left = transformPoint(v, PL);
 
-    const right = transformPoint(P, transformPoint(L, v));
+    const right = transformPoint(transformPoint(v, L), P);
     assert.ok(vecApprox(left, right, 1e-8));
 });
 
@@ -79,12 +79,12 @@ test('composeTransform respects point transformation composition', () => {
 test('transformPoint: identity rotation just translates', () => {
     const T = { pos: [1, 2, 3], rot: QI };
     const v = [5, -6, 7];
-    assert.deepEqual(transformPoint(T, v), [6, -4, 10]);
+    assert.deepEqual(transformPoint(v, T), [6, -4, 10]);
 });
 
 test('transformPoint: Z 90° then translate', () => {
     const T = { pos: [1, 2, 3], rot: qaxis([0, 0, 1], Math.PI / 2) };
     const v = [1, 0, 0];
     // rotate X -> Y, then add pos
-    assert.ok(vecApprox(transformPoint(T, v), [1, 3, 3]));
+    assert.ok(vecApprox(transformPoint(v, T), [1, 3, 3]));
 });

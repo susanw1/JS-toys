@@ -49,15 +49,15 @@ export function composeTransform(parent, local) {
  * Transform a point from local space to world space using T = { pos, rot }.
  *
  * The transformed point is:
- *   world = qrot(T.rot, vLocal) + T.pos
+ *   world = vqrot(vLocal, T.rot) + T.pos
  *
  * This function **allocates** a new vector for the result.
  *
- * @param {{ pos: number[], rot: number[] }} T - Transform with position and quaternion.
  * @param {number[]} vLocal - Local-space vector [x,y,z].
+ * @param {{ pos: number[], rot: number[] }} T - Transform with position and quaternion.
  * @returns {number[]} World-space vector [x,y,z].
  */
-export function transformPoint(T, vLocal) {
+export function transformPoint(vLocal, T) {
     const r = vqrot(vLocal, T.rot);
     return [r[0] + T.pos[0], r[1] + T.pos[1], r[2] + T.pos[2]];
 }

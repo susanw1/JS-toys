@@ -73,7 +73,7 @@ function drawMeshAtTransform(ctx, cam, mesh, fWorldToCamera, T) {
     const h = ctx.canvas.height;
 
     const vertsCam = vertices.map(vLocal =>
-        fWorldToCamera(transformPoint(T, vLocal))
+        fWorldToCamera(transformPoint(vLocal, T))
     );
 
     ctx.beginPath();
