@@ -202,3 +202,29 @@ export function qmat(q) {
     const m = [ [0,0,0], [0,0,0], [0,0,0] ];
     return qmatp(m, q);
 }
+
+/**
+ * Normalized linear interpolation between two quaternions (shortest-path),
+ * then clamped to the positive hemisphere (w >= 0).
+ * out = nlerp(qa -> qb, t), t in [0,1].
+ * Uses the "flip if dot < 0" trick to ensure shortest path.
+ * @param {number[]} qa - Start quaternion [w,x,y,z].
+ * @param {number[]} qb - End quaternion [w,x,y,z].
+ * @param {number} t    - Blend factor in [0,1].
+ * @param {number[]} [out] - Optional out quaternion; allocated if omitted.
+ * @returns {number[]} The interpolated, unit quaternion with w >= 0.
+ */
+export function qnlerp(qa, qb, t, out = [0, 0, 0, 0]) {
+    // Shortest-path: flip qb if needed.
+    let bw = qb[0], bx = qb[1], by = qb[2], bz = qb[3];
+    if ((qa[0] * bw + qa[1] * bx + qa[2] * by + qa[3] * bz) < 0) {
+        bw = -bw; bx = -bx; by = -by; bz = -bz;
+    }
+    // Linear blend
+    out[0] = qa[0] + (bw - qa[0]) * t;
+    out[1] = qa[1] + (bx - qa[1]) * t;
+    out[2] = qa[2] + (by - qa[2]) * t;
+    out[3] = qa[3] + (bz - qa[3]) * t;
+    // Normalize + clamp to positive hemisphere using existing util
+    return qnormposp(out);
+}

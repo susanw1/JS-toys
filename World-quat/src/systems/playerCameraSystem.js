@@ -34,8 +34,8 @@ export class PlayerCameraSystem {
             return;
         }
 
-//        const tw = active.getViewTransform();
-        const tw = active.worldTransform();
+        const tw = active.getViewTransform();
+//        const tw = active.worldTransform();
 
         renderCamera.position = tw.pos.slice();
         renderCamera.rotation = tw.rot.slice();

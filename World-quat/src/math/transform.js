@@ -1,5 +1,5 @@
 import { qmul, qnormpos } from "./quat.js";
-import { vqrot } from "./vec3.js";
+import { vqrot, vaddp, vadd } from "./vec3.js";
 
 /**
  * Create a transform object from position and rotation inputs.
@@ -40,24 +40,24 @@ export function composeTransform(parent, local) {
     const rot = qnormpos(qmul(parent.rot, local.rot));
     const off = vqrot(local.pos, parent.rot);
     return {
-        pos: [parent.pos[0] + off[0], parent.pos[1] + off[1], parent.pos[2] + off[2]],
+        pos: vaddp(off, parent.pos),
         rot
     };
 }
 
 /**
- * Transform a point from local space to world space using T = { pos, rot }.
+ * Transform a point from local space to world space using t = { pos, rot }.
  *
  * The transformed point is:
- *   world = vqrot(vLocal, T.rot) + T.pos
+ *   world = vqrot(vLocal, t.rot) + t.pos
  *
  * This function **allocates** a new vector for the result.
  *
  * @param {number[]} vLocal - Local-space vector [x,y,z].
- * @param {{ pos: number[], rot: number[] }} T - Transform with position and quaternion.
+ * @param {{ pos: number[], rot: number[] }} t - Transform with position and quaternion.
  * @returns {number[]} World-space vector [x,y,z].
  */
-export function transformPoint(vLocal, T) {
-    const r = vqrot(vLocal, T.rot);
-    return [r[0] + T.pos[0], r[1] + T.pos[1], r[2] + T.pos[2]];
+export function transformPoint(vLocal, t) {
+    const r = vqrot(vLocal, t.rot);
+    return vaddp(r, t.pos);
 }

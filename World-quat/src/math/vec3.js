@@ -202,3 +202,18 @@ export function vqrotp(v, q) {
  * @returns {number[]} New rotated vector.
  */
 export const vqrot  = (v, q) => vqrotp(v.slice(), q);
+
+/**
+ * Linear interpolate 3D vectors: out = a + (b - a) * t
+ * @param {number[]} out - Destination vector [x,y,z]; mutated.
+ * @param {number[]} a   - Start vector [x,y,z].
+ * @param {number[]} b   - End vector [x,y,z].
+ * @param {number} t     - Blend factor in [0,1].
+ * @returns {number[]} The mutated vector `out`.
+ */
+export function vlerp(out, a, b, t) {
+    out[0] = a[0] + (b[0] - a[0]) * t;
+    out[1] = a[1] + (b[1] - a[1]) * t;
+    out[2] = a[2] + (b[2] - a[2]) * t;
+    return out;
+}

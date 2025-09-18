@@ -1,5 +1,5 @@
 import { World } from "./world/world.js";
-import { Camera } from "./core/camera.js";
+import { RenderCamera } from "./core/renderCamera.js";
 import { Viewer } from "./render/viewer.js";
 import { WireframeRenderer } from "./render/wireframeRenderer.js";
 import { Cube } from "./entities/cube.js";
@@ -60,8 +60,6 @@ export function createScene(canvas) {
     dummy.local.rot = qaxis([1, 0, 0], Math.PI / 8);
     cube.fitAsset(dummy, "top");
 
-    const camera = new Camera({ position: [0, 0, 0], zoom: 600, near: 0.01 });
-
     const wireRenderer = new WireframeRenderer(canvas.getContext("2d"));
     const viewer = new Viewer(canvas, { renderer: wireRenderer, drawGrid: true });
 
@@ -98,6 +96,7 @@ export function createScene(canvas) {
     cube.fitAsset(motor, "core");
 
     // Create player with its own action map and render camera
+    const camera = new RenderCamera({ position: [0, 0, 0], zoom: 600, near: 0.01 });
     const player = new PlayerSession(world, { camera, inputMgr: inputMgr });
 
     // Possess the cube and bind its actions
@@ -126,7 +125,8 @@ export function createScene(canvas) {
     botCube.addMount({ id: "handR", slot: "hardpoint", transform: makeTransform([0.7, 0.0, 0.4]) });
     botCube.addMount({ id: "core", slot: "hardpoint", transform: makeTransform([0, 0, 0]) });
 
-    const botHeadCam = new CameraAsset({ name: "BotHeadCam" });
+// , lagMode: "chase", lagRot: 6
+    const botHeadCam = new CameraAsset({ name: "BotHeadCam"});
     botCube.fitAsset(botHeadCam, "head");
 
     const botGun = new WeaponAsset({ fireRate: 4, magSize: 6 });
@@ -179,7 +179,7 @@ export function createScene(canvas) {
             player.view.activeCameraId = cams[idx].id;
             player.world.emit(EV.camera_changed, {
                 playerId: player.player ? player.player.id : null,
-                entity: host,
+                entity: player.controlledEntity,
                 cameraAsset: cams[idx]
             });
         }

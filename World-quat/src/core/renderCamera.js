@@ -2,9 +2,8 @@ import { Entity } from "./entity.js";
 import { qconj } from "../math/quat.js";
 import { vsub, vqrot } from "../math/vec3.js";
 
-export class Camera extends Entity {
+export class RenderCamera {
     constructor(opts = {}) {
-        super(opts);
         this.zoom = opts.zoom ?? 600;
         this.near = opts.near ?? 0.01;
     }
